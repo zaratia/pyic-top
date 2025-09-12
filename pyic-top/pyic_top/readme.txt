@@ -1,0 +1,5 @@
+- under development
+- all files must be ordered by basin sequence
+- temperature must be ordered by time and idlapse
+- the sequence of everything must be checked during pre-processing
+- this model has snow depth
