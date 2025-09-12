@@ -3,10 +3,10 @@ import pandas as pd
 import numpy as np
 from numba import njit
 
-from ictop_utils import init_basin_vars
-from ictop_utils import init_temper, init_baseflow
-from module_pet import PET_Hargreaves
-from module_pdm import pdm
+from pyic_top.ictop_utils import init_basin_vars
+from pyic_top.ictop_utils import init_temper, init_baseflow
+from pyic_top.module_pet import PET_Hargreaves
+from pyic_top.module_pdm import pdm
 
 # global variables
 INPUT_FOLDER =  os.path.join('INPUT')

@@ -14,3 +14,9 @@ dependencies:
 - sphinx
 - sphinx-autoapi
 # DO NOT EDIT ABOVE THIS LINE, ADD DEPENDENCIES BELOW
+- black
+- isort
+- flake8
+- git
+- pandas-stubs
+- types-psutil
