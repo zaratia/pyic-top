@@ -1,4 +1,5 @@
 import json
+import os
 
 import numpy as np
 import pandas as pd
@@ -78,34 +79,57 @@ def read_json_seq(filename):
     return seq_of_bas
 
 
-def reorder_df_to_seq():
-    """Reorder a dataframe according to a sequence,
-    given a json file with the equence order.
-    THIS IS A DRAFT
+def reorder_df_to_seq(
+    seq_order: str,
+    seq_id1: str,
+    seq_id2: str,
+    df: pd.DataFrame,
+    fold_path: str,
+    file_path: str = "sequence_of_basins.json",
+) -> pd.DataFrame:
+    """Reorder a dataframe according to a sequence and a id field,
+    given a json file with the sequence order of field id1.
+    The dataframe will be finally sorted by field id2.
+
+    Args:
+        fold_path (str): _description_
+        file_path (str): _description_
+        seq_order (str): _description_
+        seq_id1 (str): first id field, the one in sequence order
+        seq_id2 (str): second id field, the one to define final sorting
+        df (pd.DataFrame): _description_
+
+    Returns
+    -------
+        pd.DataFrame: _description_
     """
     # load basin sequence
-    seq_of_bas = read_json_seq(
-        os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "sequence_of_basins.json")
-    )
+    seq_of_x = read_json_seq(os.path.join(fold_path, file_path))
 
-    # uncomment this to sort by model sequence
-    df_elevbnds["seq_order"] = df_elevbnds["idba"].map(seq_of_bas)
-    df_elevbnds = df_elevbnds.sort_values(by=["seq_order", "h1"]).drop(
-        columns="seq_order"
-    )
+    # sort by model sequence
+    df[seq_order] = df[seq_id1].map(seq_of_x)
+    df = df.sort_values(by=[seq_order, seq_id2]).drop(columns=seq_order)
 
-    df_energybnds["seq_order"] = df_energybnds["idba"].map(seq_of_bas)
-    df_energybnds = df_energybnds.sort_values(by=["seq_order", "idbn"]).drop(
-        columns="seq_order"
-    )
+    # # uncomment this to sort by model sequence
+    # df_elevbnds["seq_order"] = df_elevbnds["idba"].map(seq_of_bas)
+    # df_elevbnds = df_elevbnds.sort_values(by=["seq_order", "h1"]).drop(
+    #     columns="seq_order"
+    # )
 
-    df_EI["seq_order"] = df_EI["idba"].map(seq_of_bas)
-    df_EI = df_EI.sort_values(by=["seq_order", "idbn"]).drop(columns="seq_order")
+    # df_energybnds["seq_order"] = df_energybnds["idba"].map(seq_of_bas)
+    # df_energybnds = df_energybnds.sort_values(by=["seq_order", "idbn"]).drop(
+    #     columns="seq_order"
+    # )
 
-    df_precipitation["seq_order"] = df_precipitation["idba"].map(seq_of_bas)
-    df_precipitation = df_precipitation.sort_values(by=["seq_order", "time"]).drop(
-        columns="seq_order"
-    )
+    # df_EI["seq_order"] = df_EI["idba"].map(seq_of_bas)
+    # df_EI = df_EI.sort_values(by=["seq_order", "idbn"]).drop(
+    #     columns="seq_order"
+    # )
+
+    # df_precipitation["seq_order"] = df_precipitation["idba"].map(seq_of_bas)
+    # df_precipitation = df_precipitation.sort_values(
+    #     by=["seq_order", "time"]
+    # ).drop(columns="seq_order")
 
     return
 
@@ -116,7 +140,9 @@ def init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin):
     n_bande = len(df_energybnds["n_cl"].unique())
     df_elevbnds["h_avg"] = (df_elevbnds["h2"].values + df_elevbnds["h1"].values) / 2
     df_elevbnds["idba"] = pd.Categorical(
-        df_elevbnds["idba"], categories=df_elevbnds["idba"].unique(), ordered=True
+        df_elevbnds["idba"],
+        categories=df_elevbnds["idba"].unique(),
+        ordered=True,
     )
     fasce_area = df_elevbnds.pivot(
         index=["idba"], columns=["n_bn"], values="area"
@@ -126,7 +152,9 @@ def init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin):
     ).values
 
     df_energybnds["idba"] = pd.Categorical(
-        df_energybnds["idba"], categories=df_energybnds["idba"].unique(), ordered=True
+        df_energybnds["idba"],
+        categories=df_energybnds["idba"].unique(),
+        ordered=True,
     )
     bande_area = df_energybnds.pivot(
         index=["idba"], columns=["n_bn", "n_cl"], values="area"
@@ -144,7 +172,15 @@ def init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin):
         .transpose(0, 2, 1, 3)
     )
 
-    return n_fasce, n_bande, fasce_area, bande_area, fasce_elev_avg, bande_area_glac, EI
+    return (
+        n_fasce,
+        n_bande,
+        fasce_area,
+        bande_area,
+        fasce_elev_avg,
+        bande_area_glac,
+        EI,
+    )
 
 
 def init_meteo(fprec, ftemp, START_TIME, END_TIME):
@@ -201,7 +237,9 @@ def init_baseflow(fbflow, START_TIME, END_TIME):
     ]
 
     df_baseflow["idba"] = pd.Categorical(
-        df_baseflow["idba"], categories=df_baseflow["idba"].unique(), ordered=True
+        df_baseflow["idba"],
+        categories=df_baseflow["idba"].unique(),
+        ordered=True,
     )
     baseflow = df_baseflow.pivot(
         index=["idba"], columns=["time"], values="value"

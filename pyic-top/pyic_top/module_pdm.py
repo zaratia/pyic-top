@@ -186,8 +186,6 @@ def pdm(
             )
 
         for current_basin in range(n_basin):
-            if current_basin == 27:
-                ciao = 1
             (
                 stg_t1,
                 sgw_t1,

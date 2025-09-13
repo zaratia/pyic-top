@@ -15,7 +15,15 @@ def nint(x):
 # ---------------------------------------------
 @njit
 def get_EI(
-    elev_bnd, energy_bnd, current_basin, month, curr_hour, sunrise, sunset, EI, EImin
+    elev_bnd,
+    energy_bnd,
+    current_basin,
+    month,
+    curr_hour,
+    sunrise,
+    sunset,
+    EI,
+    EImin,
 ):
     isday_check = False
     if sunrise[month] <= curr_hour <= sunset[month]:
@@ -34,7 +42,14 @@ def get_EI(
 # ---------------------------------------------
 @njit
 def get_SCA(
-    current_time, current_WE, WE_threshold, bande_area, SCA, basin, elev_bnd, energy_bnd
+    current_time,
+    current_WE,
+    WE_threshold,
+    bande_area,
+    SCA,
+    basin,
+    elev_bnd,
+    energy_bnd,
 ):
     if current_WE >= WE_threshold:
         SCA[current_time] += bande_area[basin, elev_bnd, energy_bnd]
@@ -226,7 +241,8 @@ def snow(
                 )
                 p_vol_area[i] = prec_corr * (1 / 1000.0) * energy_band_area[i]
 
-                # check if redistribution of precipitation leads non-physical precipitation volume in lower elevation bands
+                # check if redistribution of precipitation leads non-physical
+                # precipitation volume in lower elevation bands
                 if (
                     (1.0 + dz * precgrad[current_basin] < 0.0)
                     and (energy_band_area[i] > 0.0)
@@ -272,7 +288,8 @@ def snow(
                     )
 
                     if prec[current_basin, time_step] > 0.0:
-                        # get the elevation difference from average basin elevation and elevation band
+                        # get the elevation difference from average basin
+                        # elevation and elevation band
                         dz = (
                             fasce_elev_avg[current_basin, i] - basin_elev[current_basin]
                         )
@@ -292,11 +309,14 @@ def snow(
                                 prec_elev_bnd[i] * Aband_Abasin_ratio
                             )
 
-                            # for snow density computation: https://doi.org/10.1016/j.jhydrol.2016.03.061
+                            # for snow density computation
+                            #  https://doi.org/10.1016/j.jhydrol.2016.03.061
                             rhofreshsnow = (
                                 rhomin + (max(0.0, 1.8 * t_elev_bnd[i] + 32) / 100) ** 2
                             )  # fresh snow density
-                            # new snow density is the weighted average between snowpack and fresh snow (simplified approach by MZ)
+                            # new snow density is the weighted average between
+                            # snowpack and fresh snow
+                            # (simplified approach by MZ)
                             rhosnow[current_basin, i, j] = (
                                 snowfall_fasce[current_basin, i, time_step]
                                 * rhofreshsnow
@@ -361,7 +381,8 @@ def snow(
                                 rmf[current_basin] + prec_elev_bnd[i] / 80.0
                             ) * (t_elev_bnd[i] - tmelt)
 
-                        # compute ratio between glacier area and subbasin/elevation band area
+                        # compute ratio between glacier area and
+                        # subbasin/elevation band area
                         Aglac_Abasin_ratio = (
                             bande_area_glac[current_basin, i, j]
                             / basin_area[current_basin]
@@ -375,7 +396,8 @@ def snow(
                             / bande_area[current_basin, i, j]
                         )
 
-                        # get the discharge from glacier melt, averaged over subb and elev band area
+                        # get the discharge from glacier melt,
+                        # averaged over subb and elev band area
                         baseflow_glac[current_basin, time_step] = (
                             baseflow_glac[current_basin, time_step]
                             + glac_melt[current_basin, i, j] * Aglac_Abasin_ratio
@@ -417,7 +439,8 @@ def snow(
                         )
 
                         if t_elev_bnd[i] > tmelt:
-                            # melting depends on: is it day or night? - snowfall/rainfall is occurring?
+                            # melting depends on: is it day or night?
+                            # snowfall/rainfall is occurring?
                             if prec_elev_bnd[i] < 0.2:  # no precipitation
                                 if isday:  # it is daytime
                                     snow_melt[current_basin, i, j] = (
@@ -436,7 +459,8 @@ def snow(
                                 ) * (t_elev_bnd[i] - tmelt)
 
                             # update WE
-                            # check if WE is greater than melting, if not the whole snowpack is melted
+                            # check if WE is greater than melting,
+                            # if not the whole snowpack is melted
                             if (
                                 WE[current_basin, i, j]
                                 >= snow_melt[current_basin, i, j]
@@ -450,7 +474,8 @@ def snow(
                                     snow_melt[current_basin, i, j]
                                     - WE[current_basin, i, j]
                                 )
-                                # compute ratio between glacier area and subbasin/elevation band area
+                                # compute ratio between glacier area
+                                # and subbasin/elevation band area
                                 Aglac_Abasin_ratio = (
                                     bande_area_glac[current_basin, i, j]
                                     / basin_area[current_basin]
@@ -463,7 +488,8 @@ def snow(
                                     bande_area_glac[current_basin, i, j]
                                     / bande_area[current_basin, i, j]
                                 )
-                                # get the discharge from glacier melt, averaged over subb and elev band area
+                                # get the discharge from glacier melt,
+                                # averaged over subb and elev band area
                                 baseflow_glac[current_basin, time_step] = (
                                     baseflow_glac[current_basin, time_step]
                                     + glac_melt[current_basin, i, j]
@@ -493,7 +519,8 @@ def snow(
                                 + rain_on_snow_band[i, j]
                             )
 
-                            # check if the liquid water content exceeded the maximum water content allowed
+                            # check if the liquid water content exceeded
+                            # the maximum water content allowed
                             if lqw[current_basin, i, j] > max_liq_water:
                                 excess_liq_water[i, j] = (
                                     lqw[current_basin, i, j] - max_liq_water
@@ -503,7 +530,9 @@ def snow(
                                     delaytime / 1000.0 * WE[current_basin, i, j]
                                 )
 
-                                # if retention time into snowpack is > dt --> some melted water is stored, otherwise all the melted water goes in "baseflow"
+                                # if retention time into snowpack is > dt -->
+                                # --> some melted water is stored, otherwise
+                                # all the melted water goes in "baseflow"
                                 if storage_time > 1:
                                     Vstorage[i, j] = excess_liq_water[i, j] * np.exp(
                                         -1.0 / storage_time
@@ -533,7 +562,8 @@ def snow(
                                 if storage_time < 1:
                                     excess_liq_water[i, j] = 0.0
 
-                            # cumulative snow melting over energy band, elevation band and subbasin
+                            # cumulative snow melting over energy band,
+                            # elevation band and subbasin
                             V_snow_melt[current_basin, i, j] = (
                                 V_snow_melt[current_basin, i, j]
                                 + snow_melt[current_basin, i, j]
@@ -554,7 +584,8 @@ def snow(
                             snow_freeze[current_basin, i, j] = refreezing * (
                                 tmelt - t_elev_bnd[i]
                             )
-                            # check if refrezeed volume is > liquid water content
+                            # check if refrezeed volume
+                            # is > liquid water content
                             if (
                                 snow_freeze[current_basin, i, j]
                                 < lqw[current_basin, i, j]
@@ -578,7 +609,8 @@ def snow(
                                 + snow_freeze[current_basin, i, j] * Aband_Aelev_ratio
                             )
 
-                            # update snow water equivalent with possible refreezed water volume
+                            # update snow water equivalent with
+                            # possible refreezed water volume
                             WE[current_basin, i, j] = (
                                 WE[current_basin, i, j]
                                 + snow_freeze[current_basin, i, j]
