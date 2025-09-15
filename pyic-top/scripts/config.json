@@ -1,0 +1,6 @@
+{
+    "logdir": "",
+    "seas_dwl_dir": "/private/TEMP/DWL_SEAS_MZ/{stream}",
+    "input_dir": "D:/25_ARFFS/59_progetti/02_arffs/06_ARFFS_TEXT_gfortran_python/topmelt_ichymod_ics/PY-TOP_V1.0/INPUT",
+    "output_dir": "D:/25_ARFFS/59_progetti/02_arffs/06_ARFFS_TEXT_gfortran_python/topmelt_ichymod_ics/PY-TOP_V1.0/OUTPUT"
+}
