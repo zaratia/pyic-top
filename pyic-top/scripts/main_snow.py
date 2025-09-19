@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import pandas as pd
+
 from pyic_top.ictop_utils import init_basin_vars, init_elev_ener_vars, init_meteo
 from pyic_top.module_snow import snow
 
@@ -31,9 +32,9 @@ FLOAT_FORMAT_SD = "%.4f"
 # first hour is initial condition
 
 if __name__ == "__main__":
-    start_time = pd.to_datetime(
-        START_TIME, format="%Y-%m-%d %H:%M"
-    ) + pd.Timedelta(1, "h")
+    start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M") + pd.Timedelta(
+        1, "h"
+    )
     end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M")
 
     # count numer of simulated hours (first is IC)
@@ -46,12 +47,8 @@ if __name__ == "__main__":
     )
 
     # read basin list, basin_id must be the model sequence
-    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse = (
-        init_basin_vars(
-            os.path.join(
-                INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt"
-            )
-        )
+    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse = init_basin_vars(
+        os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
     )
     # read snow basin params
     df_snow_params = pd.read_csv(
@@ -103,9 +100,7 @@ if __name__ == "__main__":
 
     # read baseflow_glac and baseflow state vars
     baseflow_glac_0 = pd.read_csv(
-        os.path.join(
-            INPUT_FOLDER, INITCOND_FOLDER, "state_var_baseflow_glac.txt"
-        ),
+        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_baseflow_glac.txt"),
         skipinitialspace=True,
     )
     baseflow_0 = pd.read_csv(
@@ -128,15 +123,11 @@ if __name__ == "__main__":
     # )['value'].values.reshape(n_basin, n_fasce, n_bande)
     # cumulative glacier melt
     rhosnow = pd.read_csv(
-        os.path.join(
-            INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_rhosnow.txt"
-        ),
+        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_rhosnow.txt"),
         skipinitialspace=True,
     )["value"].values.reshape(n_basin, n_fasce, n_bande)
     V_glac_melt = pd.read_csv(
-        os.path.join(
-            INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_glacmelt.txt"
-        ),
+        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_glacmelt.txt"),
         skipinitialspace=True,
     )["value"].values.reshape(n_basin, n_fasce, n_bande)
     lqw = pd.read_csv(
@@ -267,9 +258,7 @@ if __name__ == "__main__":
             "idba": basin_id,
             "value": baseflow_glac[:, -1],
         }
-    ).to_csv(
-        os.path.join(OUTPUT_FOLDER, "state_var_baseflow_glac.txt"), index=False
-    )
+    ).to_csv(os.path.join(OUTPUT_FOLDER, "state_var_baseflow_glac.txt"), index=False)
     # snow WE
     pd.DataFrame(
         {
@@ -303,9 +292,7 @@ if __name__ == "__main__":
             "idba": np.repeat(basin_id, n_hours),
             "value": baseflow[:, 1:].reshape(n_hours * n_basin),
         }
-    ).to_csv(
-        os.path.join(INPUT_FOLDER, TO_PDM_FOLDER, "baseflow.txt"), index=False
-    )
+    ).to_csv(os.path.join(INPUT_FOLDER, TO_PDM_FOLDER, "baseflow.txt"), index=False)
     # glacier melt to basin
     pd.DataFrame(
         {

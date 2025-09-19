@@ -6,7 +6,7 @@ import pandas as pd
 
 
 def init_basin_vars(filename):
-    """_summary_
+    """Initialize basin parameters.
 
     Args:
         filename (_type_): _description_
@@ -64,14 +64,14 @@ def sort_df_by_idba_time_seq(df0, basin_id):
 
 
 def write_dict_to_json(dictionary, filename):
-    """Write a dictionary to a .json file"""
+    """Write a dictionary to a .json file."""
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(dictionary, f, ensure_ascii=False, indent=4)
     return
 
 
 def read_json_seq(filename):
-    """This function a json sequence file"""
+    """Read a json sequence file."""
     with open(filename) as f:
         seq_of_bas = json.load(f)
     # Converti le chiavi in interi
@@ -87,9 +87,10 @@ def reorder_df_to_seq(
     fold_path: str,
     file_path: str = "sequence_of_basins.json",
 ) -> pd.DataFrame:
-    """Reorder a dataframe according to a sequence and a id field,
-    given a json file with the sequence order of field id1.
-    The dataframe will be finally sorted by field id2.
+    """Reorder a dataframe according to a sequence and a id field.
+
+    Given a json file with the sequence order of field id1, the
+    dataframe will be finally sorted by field id2.
 
     Args:
         fold_path (str): _description_
@@ -135,7 +136,7 @@ def reorder_df_to_seq(
 
 
 def init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin):
-    """Init variables according to fortran dimensions"""
+    """Init variables according to fortran dimensions."""
     n_fasce = len(df_elevbnds["n_bn"].unique())
     n_bande = len(df_energybnds["n_cl"].unique())
     df_elevbnds["h_avg"] = (df_elevbnds["h2"].values + df_elevbnds["h1"].values) / 2
