@@ -18,7 +18,6 @@ OUTPUT_FOLDER = os.path.join(
     "OUTPUT",
 )
 INITCOND_FOLDER = "initcond"
-INIT_FILE = "TOPMELT_sim_file.txt"
 TOPOLOGICAL_ELEMENT_FOLDER = "topological_elements"
 PARAMETER_FOLDER = "parameters"
 TO_PDM_FOLDER = "to_pdm"
@@ -121,32 +120,42 @@ if __name__ == "__main__":
     #     skipinitialspace=True
     # )['value'].values.reshape(n_basin, n_fasce, n_bande)
     # cumulative glacier melt
-    rhosnow = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_rhosnow.txt"),
-        skipinitialspace=True,
-    )["value"].values).reshape(n_basin, n_fasce, n_bande)
-    V_glac_melt = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_glacmelt.txt"),
-        skipinitialspace=True,
-    )["value"].values).reshape(n_basin, n_fasce, n_bande)
-    lqw = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_liqW.txt"),
-        skipinitialspace=True,
-    )["value"].values).reshape(n_basin, n_fasce, n_bande)
+    rhosnow = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_rhosnow.txt"),
+            skipinitialspace=True,
+        )["value"].values
+    ).reshape(n_basin, n_fasce, n_bande)
+    V_glac_melt = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_glacmelt.txt"),
+            skipinitialspace=True,
+        )["value"].values
+    ).reshape(n_basin, n_fasce, n_bande)
+    lqw = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_liqW.txt"),
+            skipinitialspace=True,
+        )["value"].values
+    ).reshape(n_basin, n_fasce, n_bande)
     # snow_melt = pd.read_csv(
     #     os.path.join(INPUT_FOLDER, INITCOND_FOLDER,
     # 'state_var_SNOW_melt.txt'),
     #     skipinitialspace=True
     # )['value'].values.reshape(n_basin, n_fasce, n_bande)
-    WE =np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_WE.txt"),
-        skipinitialspace=True,
-    )["value"].values).reshape(n_basin, n_fasce, n_bande)
+    WE = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_WE.txt"),
+            skipinitialspace=True,
+        )["value"].values
+    ).reshape(n_basin, n_fasce, n_bande)
     # elev band vars
-    sumT = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_sumT.txt"),
-        skipinitialspace=True,
-    )["value"].values).reshape(n_basin, n_fasce)
+    sumT = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_sumT.txt"),
+            skipinitialspace=True,
+        )["value"].values
+    ).reshape(n_basin, n_fasce)
 
     # build np arrays from python non-numpy vars
     month_array = time_array.month.values

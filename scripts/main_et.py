@@ -18,7 +18,6 @@ OUTPUT_FOLDER = os.path.join(
     "OUTPUT",
 )
 INITCOND_FOLDER = os.path.join("initcond")
-INIT_FILE = "TOPMELT_sim_file.txt"
 TOPOLOGICAL_ELEMENT_FOLDER = "topological_elements"
 PARAMETER_FOLDER = "parameters"
 EEB_FOLDER = "elev_energy_bands"
@@ -35,7 +34,7 @@ FLOAT_FORMAT_SM = "%.4f"
 
 if __name__ == "__main__":
     start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M") + pd.Timedelta(
-       hours=1
+        hours=1
     )
     end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M")
 
@@ -63,7 +62,9 @@ if __name__ == "__main__":
         os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "evapparams.txt"),
         skipinitialspace=True,
     )
-    dt_month = np.asarray(df_dt_month["deltat"].values).reshape(n_basin, 12).transpose(1, 0)
+    dt_month = (
+        np.asarray(df_dt_month["deltat"].values).reshape(n_basin, 12).transpose(1, 0)
+    )
 
     # read temperature. must be ordered by time ad idlapse
     id_lapse_rate, t_idlapse, t_slope, t_intercept = init_temper(
