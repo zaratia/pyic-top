@@ -33,17 +33,16 @@ FLOAT_FORMAT_SD = "%.4f"
 
 if __name__ == "__main__":
     start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M") + pd.Timedelta(
-        1, "h"
+        hours=1
     )
     end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M")
 
     # count numer of simulated hours (first is IC)
-    n_hours = end_time - start_time
-    n_hours = np.int32(n_hours.total_seconds() / 3600 + 1)
+    n_hours = int((end_time - start_time).total_seconds() / 3600 + 1)
     # build time array
     time_array = pd.date_range(start=start_time, end=end_time, freq="h")
     time_array_full = pd.date_range(
-        start=start_time - pd.Timedelta(1, "h"), end=end_time, freq="h"
+        start=start_time - pd.Timedelta(hours=1), end=end_time, freq="h"
     )
 
     # read basin list, basin_id must be the model sequence
@@ -122,32 +121,32 @@ if __name__ == "__main__":
     #     skipinitialspace=True
     # )['value'].values.reshape(n_basin, n_fasce, n_bande)
     # cumulative glacier melt
-    rhosnow = pd.read_csv(
+    rhosnow = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_rhosnow.txt"),
         skipinitialspace=True,
-    )["value"].values.reshape(n_basin, n_fasce, n_bande)
-    V_glac_melt = pd.read_csv(
+    )["value"].values).reshape(n_basin, n_fasce, n_bande)
+    V_glac_melt = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_glacmelt.txt"),
         skipinitialspace=True,
-    )["value"].values.reshape(n_basin, n_fasce, n_bande)
-    lqw = pd.read_csv(
+    )["value"].values).reshape(n_basin, n_fasce, n_bande)
+    lqw = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_liqW.txt"),
         skipinitialspace=True,
-    )["value"].values.reshape(n_basin, n_fasce, n_bande)
+    )["value"].values).reshape(n_basin, n_fasce, n_bande)
     # snow_melt = pd.read_csv(
     #     os.path.join(INPUT_FOLDER, INITCOND_FOLDER,
     # 'state_var_SNOW_melt.txt'),
     #     skipinitialspace=True
     # )['value'].values.reshape(n_basin, n_fasce, n_bande)
-    WE = pd.read_csv(
+    WE =np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_WE.txt"),
         skipinitialspace=True,
-    )["value"].values.reshape(n_basin, n_fasce, n_bande)
+    )["value"].values).reshape(n_basin, n_fasce, n_bande)
     # elev band vars
-    sumT = pd.read_csv(
+    sumT = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_sumT.txt"),
         skipinitialspace=True,
-    )["value"].values.reshape(n_basin, n_fasce)
+    )["value"].values).reshape(n_basin, n_fasce)
 
     # build np arrays from python non-numpy vars
     month_array = time_array.month.values

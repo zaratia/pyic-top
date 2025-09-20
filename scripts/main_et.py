@@ -35,13 +35,12 @@ FLOAT_FORMAT_SM = "%.4f"
 
 if __name__ == "__main__":
     start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M") + pd.Timedelta(
-        1, "h"
+       hours=1
     )
     end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M")
 
     # count numer of simulated hours (first is IC)
-    n_hours = end_time - start_time
-    n_hours = np.int32(n_hours.total_seconds() / 3600 + 1)
+    n_hours = int((end_time - start_time).total_seconds() / 3600 + 1)
     # build time array
     time_array = pd.date_range(start=start_time, end=end_time, freq="h")
 
@@ -64,7 +63,7 @@ if __name__ == "__main__":
         os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "evapparams.txt"),
         skipinitialspace=True,
     )
-    dt_month = df_dt_month["deltat"].values.reshape(n_basin, 12).transpose(1, 0)
+    dt_month = np.asarray(df_dt_month["deltat"].values).reshape(n_basin, 12).transpose(1, 0)
 
     # read temperature. must be ordered by time ad idlapse
     id_lapse_rate, t_idlapse, t_slope, t_intercept = init_temper(

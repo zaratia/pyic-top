@@ -132,7 +132,7 @@ def reorder_df_to_seq(
     #     by=["seq_order", "time"]
     # ).drop(columns="seq_order")
 
-    return
+    return df
 
 
 def init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin):

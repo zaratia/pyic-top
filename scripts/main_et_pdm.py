@@ -44,13 +44,12 @@ FLOAT_FORMAT_SM = "%.4f"
 
 if __name__ == "__main__":
     start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M") + pd.Timedelta(
-        1, "h"
+        hours=1
     )
     end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M")
 
     # count numer of simulated hours (first is IC)
-    n_hours = end_time - start_time
-    n_hours = np.int32(n_hours.total_seconds() / 3600 + 1)
+    n_hours = int((end_time - start_time).total_seconds() / 3600 + 1)
     # build time array
     time_array = pd.date_range(start=start_time, end=end_time, freq="h")
 
@@ -78,7 +77,7 @@ if __name__ == "__main__":
         os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "evapparams.txt"),
         skipinitialspace=True,
     )
-    dt_month = df_dt_month["deltat"].values.reshape(n_basin, 12).transpose(1, 0)
+    dt_month = np.asarray(df_dt_month["deltat"].values).reshape(n_basin, 12).transpose(1, 0)
 
     # read temperature. must be ordered by time ad idlapse
     id_lapse_rate, t_idlapse, t_slope, t_intercept = init_temper(
@@ -179,9 +178,10 @@ if __name__ == "__main__":
     )
 
     # build np arrays from python non-numpy vars
-    cmin = df_pdm_params["CMIN"].values
-    cmax = df_pdm_params["CMAX"].values
-    b = df_pdm_params["B"].values
+    # TODO: always use np.asarray when extracting values
+    cmin = np.asarray(df_pdm_params["CMIN"])
+    cmax = np.asarray(df_pdm_params["CMAX"])
+    b = np.asarray(df_pdm_params["B"])
     stmax = (b * cmin + cmax) / (b + 1)
     stmin = df_pdm_params["STMIN"].values
     be = df_pdm_params["BE"].values
@@ -266,7 +266,7 @@ if __name__ == "__main__":
         {
             "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
             "id_ba": np.repeat(basin_id, n_hours),
-            "value": soil_moisture[:, 1:].reshape(n_basin * n_hours),
+            "value": np.asarray(soil_moisture[:, 1:]).reshape(n_basin * n_hours),
         }
     ).to_csv(
         os.path.join(OUTPUT_FOLDER, "soilmoisture.txt"),
