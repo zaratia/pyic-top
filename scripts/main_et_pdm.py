@@ -35,7 +35,7 @@ TOPOLOGICAL_ELEMENT_FOLDER = config_dir['topo_ele_dir']
 PARAMETER_FOLDER = config_dir['param_dir']
 EEB_FOLDER = config_dir['eeb_dir']
 TOPOLOGY_FOLDER = config_dir['topology_dir']
-METEO_FOLDER = config_dir['param_dir']
+METEO_FOLDER = config_dir['meteo_dir']
 TO_PDM_FOLDER = config_dir['to_pdm_dir']
 START_TIME = init_info['start_time']
 END_TIME = init_info['end_time']
@@ -157,11 +157,12 @@ if __name__ == "__main__":
     )["value"].values
 
     # build np arrays for PET from python non-numpy vars
-    month_array = time_array.month.values
-    hour_array = time_array.hour.values
-    year_array = time_array.year.values
-    day_array = time_array.day.values
-    ecf = df_general_params["ECF"].values[0]
+    # TODO: turno all .values to np.asarray
+    month_array = np.asarray(time_array.month)
+    hour_array = np.asarray(time_array.hour)
+    year_array = np.asarray(time_array.year)
+    day_array = np.asarray(time_array.day)
+    ecf = np.asarray(df_general_params["ECF"])[0]
 
     # call PET
     PET = PET_Hargreaves(
@@ -202,17 +203,17 @@ if __name__ == "__main__":
     k_glac = df_pdm_params["KGLAC"].values
 
     (
-        stg,
-        sgw,
-        Cstar,
-        ET,
-        Qsubsurf,
-        runoff_glac,
-        Qglac,
-        runoff,
-        Qrunoff,
-        soil_moisture,
-        Qbase,
+        stg,  # PDM storage
+        sgw,  # groundwater
+        Cstar,  # PDM capacity
+        ET,  # evapotranspiration
+        Qsubsurf,  # topmodel subsurface flow
+        runoff_glac,  # surface glac runoff
+        Qglac,  # glac flow at the outlet
+        runoff,  # surface ruoff
+        Qrunoff,  # runoff at the oputlet
+        soil_moisture,  # % storage (vs max storage)
+        Qbase,  # base flow
     ) = pdm(
         n_hours=n_hours,
         n_basin=n_basin,

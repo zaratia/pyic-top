@@ -1,5 +1,5 @@
 {
-    "main_dir": "/home/mattia/PyIcTop",
+    "main_dir": "/home/mzaics/codes/pyic-top-files",
     "log_dir": "LOG",
     "input_dir": "INPUT",
     "output_dir": "OUTPUT",
@@ -8,5 +8,6 @@
     "param_dir": "parameters",
     "eeb_dir": "elev_energy_bands",
     "topology_dir": "topology",
+    "meteo_dir": "meteo",
     "to_pdm_dir": "to_pdm"
 }

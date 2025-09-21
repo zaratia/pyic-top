@@ -1,4 +1,5 @@
 import os
+import json
 
 import numpy as np
 import pandas as pd
@@ -6,35 +7,50 @@ import pandas as pd
 from pyic_top.ictop_utils import init_basin_vars, init_elev_ener_vars, init_meteo
 from pyic_top.module_snow import snow
 
+
+def _read_init(cfg_path: str = "config.json") -> dict:
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Error loading JSON file: {e}")
+        return {}
+
+
+config_dir = _read_init("config.json")
+init_info = _read_init("init.json")
+
 # global variables
 INPUT_FOLDER = os.path.join(
-    "D:/25_ARFFS/59_progetti/02_arffs/06_ARFFS_TEXT_gfortran_python/"
-    "topmelt_ichymod_ics/PY-TOP_V1.0",
-    "INPUT",
+    config_dir['main_dir'],
+    config_dir['input_dir'],
 )
 OUTPUT_FOLDER = os.path.join(
-    "D:/25_ARFFS/59_progetti/02_arffs/06_ARFFS_TEXT_gfortran_python/"
-    "topmelt_ichymod_ics/PY-TOP_V1.0",
-    "OUTPUT",
+    config_dir['main_dir'],
+    config_dir['output_dir'],
 )
-INITCOND_FOLDER = "initcond"
-TOPOLOGICAL_ELEMENT_FOLDER = "topological_elements"
-PARAMETER_FOLDER = "parameters"
-TO_PDM_FOLDER = "to_pdm"
-EEB_FOLDER = "elev_energy_bands"
-TOPOLOGY_FOLDER = "topology"
-METEO_FOLDER = "meteo"
-START_TIME = "2018-10-01 00:00"
-END_TIME = "2019-10-01 00:00"
-WE_THRESHOLD = 20.0  # for SCA
+INITCOND_FOLDER = config_dir['initcond_dir']
+TOPOLOGICAL_ELEMENT_FOLDER = config_dir['topo_ele_dir']
+PARAMETER_FOLDER = config_dir['param_dir']
+EEB_FOLDER = config_dir['eeb_dir']
+TOPOLOGY_FOLDER = config_dir['topology_dir']
+METEO_FOLDER = config_dir['meteo_dir']
+TO_PDM_FOLDER = config_dir['to_pdm_dir']
+START_TIME = init_info['start_time']
+END_TIME = init_info['end_time']
+AVG_LAT = init_info['average_lat']
+AVG_LON = init_info['average_lon']
+WE_THRESHOLD = init_info['sca_we_threshold']
+QBASE_TYPE = init_info['qbase_type']
 FLOAT_FORMAT_SD = "%.4f"
+
 # first hour is initial condition
 
 if __name__ == "__main__":
-    start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M") + pd.Timedelta(
+    start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M:%S") + pd.Timedelta(
         hours=1
     )
-    end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M")
+    end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M:%S")
 
     # count numer of simulated hours (first is IC)
     n_hours = int((end_time - start_time).total_seconds() / 3600 + 1)
@@ -114,73 +130,73 @@ if __name__ == "__main__":
 
     # these variables are not stored step by step
     # class vars
-    # snow_freeze = pd.read_csv(
+    # snow_freeze = np.asarray(pd.read_csv(
     #     os.path.join(INPUT_FOLDER, INITCOND_FOLDER,
     # 'state_var_SNOW_freezed.txt'),
     #     skipinitialspace=True
-    # )['value'].values.reshape(n_basin, n_fasce, n_bande)
+    # )['value']).reshape(n_basin, n_fasce, n_bande)
     # cumulative glacier melt
     rhosnow = np.asarray(
         pd.read_csv(
             os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_rhosnow.txt"),
             skipinitialspace=True,
-        )["value"].values
+        )["value"]
     ).reshape(n_basin, n_fasce, n_bande)
     V_glac_melt = np.asarray(
         pd.read_csv(
             os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_glacmelt.txt"),
             skipinitialspace=True,
-        )["value"].values
+        )["value"]
     ).reshape(n_basin, n_fasce, n_bande)
     lqw = np.asarray(
         pd.read_csv(
             os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_liqW.txt"),
             skipinitialspace=True,
-        )["value"].values
+        )["value"]
     ).reshape(n_basin, n_fasce, n_bande)
-    # snow_melt = pd.read_csv(
+    # snow_melt = np.asarray(pd.read_csv(
     #     os.path.join(INPUT_FOLDER, INITCOND_FOLDER,
     # 'state_var_SNOW_melt.txt'),
     #     skipinitialspace=True
-    # )['value'].values.reshape(n_basin, n_fasce, n_bande)
+    # )['value']).reshape(n_basin, n_fasce, n_bande)
     WE = np.asarray(
         pd.read_csv(
             os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_WE.txt"),
             skipinitialspace=True,
-        )["value"].values
+        )["value"]
     ).reshape(n_basin, n_fasce, n_bande)
     # elev band vars
     sumT = np.asarray(
         pd.read_csv(
             os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_sumT.txt"),
             skipinitialspace=True,
-        )["value"].values
+        )["value"]
     ).reshape(n_basin, n_fasce)
 
     # build np arrays from python non-numpy vars
-    month_array = time_array.month.values
-    hour_array = time_array.hour.values
-    year_array = time_array.year.values
-    day_array = time_array.day.values
-    PCF = df_snow_params["PCF"].values
-    precgrad = df_snow_params["PRECGRAD"].values
-    tsnow = df_general_params["Tsnow"].values[0]
-    tmelt = df_general_params["Tmelt"].values[0]
-    albsnow = df_snow_params["ALBSNOW"].values
-    albglac = df_snow_params["ALBGLAC"].values
-    beta2 = df_snow_params["BETA2"].values
-    cmf = df_snow_params["CMF"].values
-    nmf = df_snow_params["NMF"].values
-    rmf = df_snow_params["RMF"].values
-    sunrise = df_sun_params["sunrise"].values
-    sunset = df_sun_params["sunset"].values
-    delaytime = df_general_params["DelayTime"].values[0]
-    liquidwater = df_general_params["LiquidWater"].values[0]
-    refreezing = df_general_params["Refreezing"].values[0]
-    c5 = df_general_params["c5"].values[0]
-    c6 = df_general_params["c6"].values[0]
-    eta0 = df_general_params["eta0"].values[0]
-    rhomin = df_general_params["rhomin"].values[0]
+    month_array = np.asarray(time_array.month)
+    hour_array = np.asarray(time_array.hour)
+    year_array = np.asarray(time_array.year)
+    day_array = np.asarray(time_array.day)
+    PCF = np.asarray(df_snow_params["PCF"])
+    precgrad = np.asarray(df_snow_params["PRECGRAD"])
+    tsnow = np.asarray(df_general_params["Tsnow"])[0]
+    tmelt = np.asarray(df_general_params["Tmelt"])[0]
+    albsnow = np.asarray(df_snow_params["ALBSNOW"])
+    albglac = np.asarray(df_snow_params["ALBGLAC"])
+    beta2 = np.asarray(df_snow_params["BETA2"])
+    cmf = np.asarray(df_snow_params["CMF"])
+    nmf = np.asarray(df_snow_params["NMF"])
+    rmf = np.asarray(df_snow_params["RMF"])
+    sunrise = np.asarray(df_sun_params["sunrise"])
+    sunset = np.asarray(df_sun_params["sunset"])
+    delaytime = np.asarray(df_general_params["DelayTime"])[0]
+    liquidwater = np.asarray(df_general_params["LiquidWater"])[0]
+    refreezing = np.asarray(df_general_params["Refreezing"])[0]
+    c5 = np.asarray(df_general_params["c5"])[0]
+    c6 = np.asarray(df_general_params["c6"])[0]
+    eta0 = np.asarray(df_general_params["eta0"])[0]
+    rhomin = np.asarray(df_general_params["rhomin"])[0]
 
     WE, rhosnow, WE_basin, snowfall_basin, rainfall_basin, baseflow = snow(
         n_fasce=n_fasce,

@@ -139,39 +139,59 @@ def init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin):
     """Init variables according to fortran dimensions."""
     n_fasce = len(df_elevbnds["n_bn"].unique())
     n_bande = len(df_energybnds["n_cl"].unique())
-    df_elevbnds["h_avg"] = (df_elevbnds["h2"].values + df_elevbnds["h1"].values) / 2
+
+    df_elevbnds["h_avg"] = (
+        np.asarray(df_elevbnds["h2"]) + np.asarray(df_elevbnds["h1"])
+        ) / 2
     df_elevbnds["idba"] = pd.Categorical(
         df_elevbnds["idba"],
         categories=df_elevbnds["idba"].unique(),
         ordered=True,
     )
-    fasce_area = df_elevbnds.pivot(
-        index=["idba"], columns=["n_bn"], values="area"
-    ).values
-    fasce_elev_avg = df_elevbnds.pivot(
-        index=["idba"], columns=["n_bn"], values="h_avg"
-    ).values
+    fasce_area = np.asarray(
+        df_elevbnds.pivot(
+            index=["idba"],
+            columns=["n_bn"],
+            values="area"
+            )
+        )
+    fasce_elev_avg = np.asarray(
+        df_elevbnds.pivot(
+            index=["idba"],
+            columns=["n_bn"],
+            values="h_avg"
+            )
+        )
 
     df_energybnds["idba"] = pd.Categorical(
         df_energybnds["idba"],
         categories=df_energybnds["idba"].unique(),
         ordered=True,
     )
-    bande_area = df_energybnds.pivot(
-        index=["idba"], columns=["n_bn", "n_cl"], values="area"
-    ).values.reshape(n_basin, n_fasce, n_bande)
-    bande_area_glac = df_energybnds.pivot(
-        index=["idba"], columns=["n_bn", "n_cl"], values="area_glac"
-    ).values.reshape(n_basin, n_fasce, n_bande)
+    bande_area = np.asarray(
+        df_energybnds.pivot(
+            index=["idba"],
+            columns=["n_bn", "n_cl"],
+            values="area"
+            )).reshape(n_basin, n_fasce, n_bande)
+    bande_area_glac = np.asarray(
+        df_energybnds.pivot(
+            index=["idba"],
+            columns=["n_bn", "n_cl"], 
+            values="area_glac"
+            )
+        ).reshape(n_basin, n_fasce, n_bande)
 
     df_EI["idba"] = pd.Categorical(
         df_EI["idba"], categories=df_EI["idba"].unique(), ordered=True
     )
-    EI = (
-        df_EI.pivot(index=["idba"], columns=["idmo", "n_bn", "n_cl"], values="EI")
-        .values.reshape(n_basin, n_fasce, 12, n_bande)
-        .transpose(0, 2, 1, 3)
-    )
+    EI = np.asarray(
+        df_EI.pivot(
+            index=["idba"],
+            columns=["idmo", "n_bn", "n_cl"],
+            values="EI"
+            )
+        ).reshape(n_basin, n_fasce, 12, n_bande).transpose(0, 2, 1, 3)
 
     return (
         n_fasce,
@@ -204,9 +224,9 @@ def init_meteo(fprec, ftemp, START_TIME, END_TIME):
         categories=df_precipitation["idba"].unique(),
         ordered=True,
     )
-    prec = df_precipitation.pivot(
+    prec = np.asarray(df_precipitation.pivot(
         index=["idba"], columns=["time"], values="value"
-    ).values
+    ))
 
     return id_lapse_rate, t_idlapse, t_slope, t_intercept, prec
 
@@ -242,8 +262,8 @@ def init_baseflow(fbflow, START_TIME, END_TIME):
         categories=df_baseflow["idba"].unique(),
         ordered=True,
     )
-    baseflow = df_baseflow.pivot(
+    baseflow = np.asarray(df_baseflow.pivot(
         index=["idba"], columns=["time"], values="value"
-    ).values
+    ))
 
     return baseflow

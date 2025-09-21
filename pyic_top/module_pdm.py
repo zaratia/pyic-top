@@ -1,10 +1,6 @@
 import numpy as np
 from numba import njit
 
-# -------------------------------------------------
-# Supporting mathematical functions
-# -------------------------------------------------
-
 
 @njit
 def soil_water_content(cstar, min_c, max_c, current_b):
