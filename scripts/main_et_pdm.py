@@ -37,6 +37,7 @@ EEB_FOLDER = config_dir['eeb_dir']
 TOPOLOGY_FOLDER = config_dir['topology_dir']
 METEO_FOLDER = config_dir['meteo_dir']
 TO_PDM_FOLDER = config_dir['to_pdm_dir']
+TO_TRNSPRT_FOLDER = config_dir['to_trnsprt_dir']
 START_TIME = init_info['start_time']
 END_TIME = init_info['end_time']
 AVG_LAT = init_info['average_lat']
@@ -59,7 +60,7 @@ if __name__ == "__main__":
     time_array = pd.date_range(start=start_time, end=end_time, freq="h")
 
     # read basin list, basin_id must be the model sequence
-    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse = init_basin_vars(
+    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = init_basin_vars(
         os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
     )
     # read snow basin params
@@ -83,7 +84,7 @@ if __name__ == "__main__":
         skipinitialspace=True,
     )
     dt_month = (
-        np.asarray(df_dt_month["deltat"].values).reshape(n_basin, 12).transpose(1, 0)
+        np.asarray(df_dt_month["deltat"]).reshape(n_basin, 12).transpose(1, 0)
     )
 
     # read temperature. must be ordered by time ad idlapse
@@ -111,53 +112,53 @@ if __name__ == "__main__":
     Qrunoff = np.full((n_basin, n_hours + 1), -999.0)
     Qglac = np.full((n_basin, n_hours + 1), -999.0)
     Qbase = np.full((n_basin, n_hours + 1), -999.0)
+    Qsubsurf = np.full((n_basin, n_hours + 1), -999.0)
     soil_moisture = np.full((n_basin, n_hours + 1), -999.0)
 
     # these variables are not stored step by step
     # basin vars
-    Cstar = pd.read_csv(
+    Cstar = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Cstar.txt"),
         skipinitialspace=True,
-    )["value"].values
-    Qbase[:, 0] = pd.read_csv(
+    )["value"])
+    Qbase[:, 0] = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qbase.txt"),
         skipinitialspace=True,
-    )["value"].values
-    Qrunoff_t1 = pd.read_csv(
+    )["value"])
+    Qrunoff_t1 = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t1.txt"),
         skipinitialspace=True,
-    )["value"].values
-    Qglac_t1 = pd.read_csv(
+    )["value"])
+    Qglac_t1 = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t1glac.txt"),
         skipinitialspace=True,
-    )["value"].values
-    Qrunoff_t2 = pd.read_csv(
+    )["value"])
+    Qrunoff_t2 = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t2.txt"),
         skipinitialspace=True,
-    )["value"].values
-    Qglac_t2 = pd.read_csv(
+    )["value"])
+    Qglac_t2 = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t2glac.txt"),
         skipinitialspace=True,
-    )["value"].values
-    runoff_glac = pd.read_csv(
+    )["value"])
+    runoff_glac = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_runoff_glac.txt"),
         skipinitialspace=True,
-    )["value"].values
-    runoff = pd.read_csv(
+    )["value"])
+    runoff = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_runoff.txt"),
         skipinitialspace=True,
-    )["value"].values
-    sgw = pd.read_csv(
+    )["value"])
+    sgw = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_sgw.txt"),
         skipinitialspace=True,
-    )["value"].values
-    stg = pd.read_csv(
+    )["value"])
+    stg = np.asarray(pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_stg.txt"),
         skipinitialspace=True,
-    )["value"].values
+    )["value"])
 
     # build np arrays for PET from python non-numpy vars
-    # TODO: turno all .values to np.asarray
     month_array = np.asarray(time_array.month)
     hour_array = np.asarray(time_array.hour)
     year_array = np.asarray(time_array.year)
@@ -191,16 +192,16 @@ if __name__ == "__main__":
     cmax = np.asarray(df_pdm_params["CMAX"])
     b = np.asarray(df_pdm_params["B"])
     stmax = (b * cmin + cmax) / (b + 1)
-    stmin = df_pdm_params["STMIN"].values
-    be = df_pdm_params["BE"].values
-    bg = df_pdm_params["BG"].values
-    q0 = df_pdm_params["Q0"].values
-    m = df_pdm_params["M"].values
-    kg = df_pdm_params["KG"].values
-    ks = df_pdm_params["KS"].values
-    k1 = df_pdm_params["K1"].values
-    k2 = df_pdm_params["K2"].values
-    k_glac = df_pdm_params["KGLAC"].values
+    stmin = np.asarray(df_pdm_params["STMIN"])
+    be = np.asarray(df_pdm_params["BE"])
+    bg = np.asarray(df_pdm_params["BG"])
+    q0 = np.asarray(df_pdm_params["Q0"])
+    m = np.asarray(df_pdm_params["M"])
+    kg = np.asarray(df_pdm_params["KG"])
+    ks = np.asarray(df_pdm_params["KS"])
+    k1 = np.asarray(df_pdm_params["K1"])
+    k2 = np.asarray(df_pdm_params["K2"])
+    k_glac = np.asarray(df_pdm_params["KGLAC"])
 
     (
         stg,  # PDM storage
@@ -211,7 +212,7 @@ if __name__ == "__main__":
         runoff_glac,  # surface glac runoff
         Qglac,  # glac flow at the outlet
         runoff,  # surface ruoff
-        Qrunoff,  # runoff at the oputlet
+        Qrunoff,  # runoff at the outlet
         soil_moisture,  # % storage (vs max storage)
         Qbase,  # base flow
     ) = pdm(
@@ -252,8 +253,9 @@ if __name__ == "__main__":
         Qrunoff_t2=Qrunoff_t2,
         Qrunoff=Qrunoff,
         Qglac=Qglac,
+        Qsubsurf=Qsubsurf,
         soil_moisture=soil_moisture,
-        time_step_duration=3600,
+        time_step_duration=1,
     )
 
     # # write final state vars
@@ -278,6 +280,41 @@ if __name__ == "__main__":
         }
     ).to_csv(
         os.path.join(OUTPUT_FOLDER, "soilmoisture.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+
+    # to transport models
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "idno": np.repeat(basin_node, n_hours),
+            "value": (
+                np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours) +
+                np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours) +
+                np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours) +
+                np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours)
+            ) * np.repeat(basin_area, n_hours) / 1000 / 3600  # m3/s
+        }
+    ).to_csv(
+        os.path.join(INPUT_FOLDER, TO_TRNSPRT_FOLDER, "discharge.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+
+    # to transport models
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "qglac": np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours),
+            "qroff": np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours),
+            "qbase": np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours),
+            "qsubs": np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "basin_runoff.txt"),
         index=False,
         float_format=FLOAT_FORMAT_SM,
     )

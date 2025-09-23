@@ -61,7 +61,7 @@ if __name__ == "__main__":
     )
 
     # read basin list, basin_id must be the model sequence
-    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse = init_basin_vars(
+    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = init_basin_vars(
         os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
     )
     # read snow basin params
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     ) = init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin)
 
     # read meteo. temperature must be ordered by time ad idlapse
-    id_lapse_rate, t_idlapse, t_slope, t_intercept, prec = init_meteo(
+    id_lapse_rate, t_idlapse, t_slope, t_intercept, prec  = init_meteo(
         os.path.join(INPUT_FOLDER, METEO_FOLDER, "precipitation.txt"),
         os.path.join(INPUT_FOLDER, METEO_FOLDER, "temperature.txt"),
         START_TIME,
@@ -317,6 +317,20 @@ if __name__ == "__main__":
             "value": baseflow[:, 1:].reshape(n_hours * n_basin),
         }
     ).to_csv(os.path.join(INPUT_FOLDER, TO_PDM_FOLDER, "baseflow.txt"), index=False)
+
+    # rain + snow
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "rain": rainfall_basin[:, 1:].reshape(n_hours * n_basin),
+            "snow": snowfall_basin[:, 1:].reshape(n_hours * n_basin),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "rain_snow.txt"),
+        index=False,
+    )
+    
     # glacier melt to basin
     pd.DataFrame(
         {

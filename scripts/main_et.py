@@ -1,4 +1,5 @@
 import os
+import json
 
 import numpy as np
 import pandas as pd
@@ -6,37 +7,50 @@ import pandas as pd
 from pyic_top.ictop_utils import init_basin_vars, init_temper
 from pyic_top.module_pet import PET_Hargreaves
 
+
+def _read_init(cfg_path: str = "config.json") -> dict:
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Error loading JSON file: {e}")
+        return {}
+
+
+config_dir = _read_init("config.json")
+init_info = _read_init("init.json")
+
 # global variables
 INPUT_FOLDER = os.path.join(
-    "D:/25_ARFFS/59_progetti/02_arffs/06_ARFFS_TEXT_gfortran_python/"
-    "topmelt_ichymod_ics/PY-TOP_V1.0",
-    "INPUT",
+    config_dir['main_dir'],
+    config_dir['input_dir'],
 )
 OUTPUT_FOLDER = os.path.join(
-    "D:/25_ARFFS/59_progetti/02_arffs/06_ARFFS_TEXT_gfortran_python/"
-    "topmelt_ichymod_ics/PY-TOP_V1.0",
-    "OUTPUT",
+    config_dir['main_dir'],
+    config_dir['output_dir'],
 )
-INITCOND_FOLDER = os.path.join("initcond")
-TOPOLOGICAL_ELEMENT_FOLDER = "topological_elements"
-PARAMETER_FOLDER = "parameters"
-EEB_FOLDER = "elev_energy_bands"
-TOPOLOGY_FOLDER = "topology"
-METEO_FOLDER = "meteo"
-TO_PDM_FOLDER = "to_pdm"
-START_TIME = "2018-10-01 00:00"
-END_TIME = "2019-10-01 00:00"
-AVG_LAT = 46.7
-WE_THRESHOLD = 20.0
-QBASE_TYPE = 1
+INITCOND_FOLDER = config_dir['initcond_dir']
+TOPOLOGICAL_ELEMENT_FOLDER = config_dir['topo_ele_dir']
+PARAMETER_FOLDER = config_dir['param_dir']
+EEB_FOLDER = config_dir['eeb_dir']
+TOPOLOGY_FOLDER = config_dir['topology_dir']
+METEO_FOLDER = config_dir['meteo_dir']
+TO_PDM_FOLDER = config_dir['to_pdm_dir']
+START_TIME = init_info['start_time']
+END_TIME = init_info['end_time']
+AVG_LAT = init_info['average_lat']
+AVG_LON = init_info['average_lon']
+WE_THRESHOLD = init_info['sca_we_threshold']
+QBASE_TYPE = init_info['qbase_type']
 FLOAT_FORMAT_SM = "%.4f"
+
 # first hour is initial condition
 
 if __name__ == "__main__":
-    start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M") + pd.Timedelta(
+    start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M:%S") + pd.Timedelta(
         hours=1
     )
-    end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M")
+    end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M:%S")
 
     # count numer of simulated hours (first is IC)
     n_hours = int((end_time - start_time).total_seconds() / 3600 + 1)
@@ -63,7 +77,7 @@ if __name__ == "__main__":
         skipinitialspace=True,
     )
     dt_month = (
-        np.asarray(df_dt_month["deltat"].values).reshape(n_basin, 12).transpose(1, 0)
+        np.asarray(df_dt_month["deltat"]).reshape(n_basin, 12).transpose(1, 0)
     )
 
     # read temperature. must be ordered by time ad idlapse
@@ -78,11 +92,11 @@ if __name__ == "__main__":
     PET = np.full((n_basin, n_hours + 1), -999.0)
 
     # build np arrays for PET from python non-numpy vars
-    month_array = time_array.month.values
-    hour_array = time_array.hour.values
-    year_array = time_array.year.values
-    day_array = time_array.day.values
-    ecf = df_general_params["ECF"].values[0]
+    month_array = np.asarray(time_array.month)
+    hour_array = np.asarray(time_array.hour)
+    year_array = np.asarray(time_array.year)
+    day_array = np.asarray(time_array.day)
+    ecf = np.asarray(df_general_params["ECF"])[0]
 
     # call PET
     PET = PET_Hargreaves(
@@ -122,7 +136,7 @@ if __name__ == "__main__":
     pd.DataFrame(
         {
             "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "id_ba": np.repeat(basin_id, n_hours),
+            "idba": np.repeat(basin_id, n_hours),
             "value": PET[:, 1:].reshape(n_basin * n_hours),
         }
     ).to_csv(

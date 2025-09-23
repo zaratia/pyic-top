@@ -9,5 +9,6 @@
     "eeb_dir": "elev_energy_bands",
     "topology_dir": "topology",
     "meteo_dir": "meteo",
-    "to_pdm_dir": "to_pdm"
+    "to_pdm_dir": "to_pdm",
+    "to_trnsprt_dir": "to_transport"
 }
