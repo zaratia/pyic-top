@@ -5,8 +5,34 @@ import numpy as np
 import pandas as pd
 
 
+def init_reach_vars(filename):
+    """Initialize reach file.
+
+    Args:
+        filename (_type_): _description_
+
+    Returns
+    -------
+        _type_: _description_
+    """
+    reaches = pd.read_csv(filename)
+    reach_id = np.array(reaches["idre"])
+    reach_in = np.array(reaches["idin"])
+    reach_out = np.array(reaches["idout"])
+    n_sub_reaches = np.array(reaches["nreaches"])
+    n_reach = len(reach_id)
+
+    # check unique id
+    n2 = len(np.unique(reach_id))
+    if n2 < n_reach:
+        raise ValueError("Non unique reach id")
+        return
+
+    return reaches, reach_id, n_reach, reach_in, reach_out, n_sub_reaches
+
+
 def init_basin_vars(filename):
-    """Initialize basin parameters.
+    """Initialize basin file.
 
     Args:
         filename (_type_): _description_
@@ -20,6 +46,7 @@ def init_basin_vars(filename):
     basin_elev = np.array(basins["elev"])
     basin_area = np.array(basins["area"])
     basin_lapse = np.array(basins["idlapse"])
+    basin_node = np.array(basins["nodeout"])
     n_basin = len(basin_id)
 
     # check unique id
@@ -28,7 +55,7 @@ def init_basin_vars(filename):
         raise ValueError("Non unique basin id")
         return
 
-    return basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse
+    return basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node
 
 
 def sort_df_by_idba_seq(df0, basin_id):

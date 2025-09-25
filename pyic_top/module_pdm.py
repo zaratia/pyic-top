@@ -165,6 +165,7 @@ def pdm(
     Qrunoff_t2,
     Qrunoff,
     Qglac,
+    Qsubsurf,
     soil_moisture,
     time_step_duration,
 ):
@@ -172,6 +173,7 @@ def pdm(
     soil_moisture[:, 0] = stg / stmax
 
     for time_step in range(1, n_hours + 1, 1):
+        # print time info
         if hour_array[time_step - 1] == 0:
             print(
                 "PDM",
@@ -179,17 +181,17 @@ def pdm(
                 month_array[time_step - 1],
                 day_array[time_step - 1],
             )
-
+        # loop over basins
         for current_basin in range(n_basin):
             (
                 stg_t1,
                 sgw_t1,
                 Cstar_t1,
                 runoff_t1,
-                Qrunoff_t2,
                 Qrunoff_t1,
-                Qglac_t2,
+                Qrunoff_t2,
                 Qglac_t1,
+                Qglac_t2,
                 runoff_glac_t1,
                 Qbase_t1,
             ) = init_PDM_state_var_previous_time(
@@ -229,14 +231,14 @@ def pdm(
                 else 0.0
             )
             # topmodel like subsurface flow
-            Qsubsurf = (
+            Qsubsurf[current_basin, time_step] = (
                 q0[current_basin]
                 * np.exp(-(stmax[current_basin] - stg_t1) / m[current_basin])
                 if q0[current_basin] > 0.001 or m[current_basin] > 1.0
                 else 0.0
             )
             # get the balance. the baseflow start from timestep 1, 0 is IC
-            losses = Qsubsurf + Q_to_gw + ET[current_basin, time_step]
+            losses = Qsubsurf[current_basin, time_step] + Q_to_gw + ET[current_basin, time_step]
             net_inflow = baseflow[current_basin, time_step - 1] - losses
 
             runoff_glac[current_basin] = baseflow_glac[current_basin, time_step - 1]
@@ -251,7 +253,11 @@ def pdm(
             )
 
             if net_inflow > 0.0:
-                Cstar[current_basin] = min(Cstar_t1 + net_inflow, cmax[current_basin])
+                # update cstar
+                Cstar[current_basin] = min(
+                    Cstar_t1 + net_inflow, cmax[current_basin]
+                    )
+                # update storage
                 stg[current_basin] = min(
                     soil_water_content(
                         Cstar[current_basin],
@@ -261,6 +267,7 @@ def pdm(
                     ),
                     stmax[current_basin],
                 )
+                # compute runoff
                 runoff[current_basin] = runoff_function(
                     net_inflow,
                     Cstar_t1,
@@ -270,31 +277,77 @@ def pdm(
                     b[current_basin],
                     time_step_duration,
                 )
+
+                # propagate runoff
+                dt1, dt2, o0, o1 = runoff_propagation(
+                    time_step_duration, k1[current_basin], k2[current_basin]
+                )
+                Qrunoff[current_basin, time_step] = (
+                    -dt1 * Qrunoff_t1[current_basin]
+                    - dt2 * Qrunoff_t2[current_basin]
+                    + o0 * runoff[current_basin]
+                    + o1 * runoff_t1
+                )
+
             else:
                 runoff[current_basin] = 0.0
-                stg[current_basin] = max(stg_t1 + net_inflow, cmin[current_basin])
+                # propagate runoff
+                dt1, dt2, o0, o1 = runoff_propagation(
+                    time_step_duration, k1[current_basin], k2[current_basin]
+                )
+                Qrunoff[current_basin, time_step] = (
+                    -dt1 * Qrunoff_t1[current_basin]
+                    - dt2 * Qrunoff_t2[current_basin]
+                    + o0 * runoff[current_basin]
+                    + o1 * runoff_t1
+                )
+                # update storage
+                stg[current_basin] = stg[current_basin] + net_inflow
+                if stg[current_basin] < cmin[current_basin]:
+                    Cstar[current_basin] = cmin[current_basin]
+                    stg[current_basin] = cmin[current_basin]
+                    # update precipitation and losses
+                    net_inflow = stg[current_basin] - stg_t1
+                    losses = baseflow[current_basin, time_step] - net_inflow
+                    if Q_to_gw >= losses:
+                        Q_to_gw = losses
+                        Qsubsurf[current_basin, time_step] = 0.0
+                        ET[current_basin, time_step] = 0.0
+                    else:
+                        losses = losses - Q_to_gw
+                        if Qsubsurf[current_basin, time_step] >= losses:
+                            Qsubsurf[current_basin, time_step] = losses
+                            ET[current_basin, time_step] = 0.0
+                        else:
+                            losses = losses - Qsubsurf[current_basin, time_step]
+                            ET[current_basin, time_step] = losses
+
+
+                if stg[current_basin] >= stmax[current_basin]:
+                    stg[current_basin] = stmax[current_basin]
+
                 Cstar[current_basin] = Csat(
                     stg[current_basin],
                     cmin[current_basin],
                     cmax[current_basin],
                     b[current_basin],
                 )
+                if Cstar[current_basin] > cmax[current_basin]:
+                    Cstar[current_basin] = cmax[current_basin]
+                    stg[current_basin] = soil_water_content(
+                        Cstar[current_basin],
+                        cmin[current_basin],
+                        cmax[current_basin],
+                        b[current_basin],
+                    )
 
-            dt1, dt2, o0, o1 = runoff_propagation(
-                time_step_duration, k1[current_basin], k2[current_basin]
-            )
-            Qrunoff[current_basin, time_step] = (
-                -dt1 * Qrunoff_t1[current_basin]
-                - dt2 * Qrunoff_t2[current_basin]
-                + o0 * runoff[current_basin]
-                + o1 * runoff_t1
-            )
-            Qrunoff[current_basin, time_step] = max(
-                Qrunoff[current_basin, time_step], 0.00001
-            )
+            # update soil moisture
             soil_moisture[current_basin, time_step] = (
                 stg[current_basin] / stmax[current_basin]
             )
+            
+            # if Qrunoff[current_basin,time_step] < 0.00001:
+            #     Qrunoff[current_basin,time_step] = 0.00001
 
             # Baseflow
             if Qbase_type == 0:

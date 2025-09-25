@@ -4,9 +4,8 @@ import os
 import numpy as np
 import pandas as pd
 
-from pyic_top.ictop_utils import init_baseflow, init_basin_vars, init_temper
-from pyic_top.module_pdm import pdm
-from pyic_top.module_pet import PET_Hargreaves
+from pyic_top.ictop_utils import init_reach_vars
+from pyic_top.module_mc import MC, MC_params
 
 
 def _read_init(cfg_path: str = "config.json") -> dict:
@@ -59,111 +58,121 @@ if __name__ == "__main__":
     # build time array
     time_array = pd.date_range(start=start_time, end=end_time, freq="h")
 
-    # read basin list, basin_id must be the model sequence
-    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = init_basin_vars(
-        os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
+    # read reaches list, reach id must be the model sequence
+    df_reaches, reaches_id, n_reach, reach_in, reach_out, n_sub_reaches = init_reach_vars(
+        os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "reaches.txt")
     )
-    # read snow basin params
-    df_pdm_params = pd.read_csv(
-        os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "parameters_PDM.csv"),
+    # read nodelinks list
+    df_nodelinks = pd.read_csv(
+        os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "nodelinks.txt"),
         skipinitialspace=True,
     )
-    # read general params
-    df_general_params = pd.read_csv(
-        os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "parameters_general.csv"),
+    # read transport sequence
+    df_trans_seq = pd.read_csv(
+        os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "transport_seq.txt"),
         skipinitialspace=True,
     )
-    # sunrise, sunset params
-    df_sun_params = pd.read_csv(
-        os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "sunrise_sunset.csv"),
+    # read element list
+    df_elements = pd.read_csv(
+        os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "elements.txt"),
         skipinitialspace=True,
-    )
-    # ET params
-    df_dt_month = pd.read_csv(
-        os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "evapparams.csv"),
+    ).set_index("idel")
+
+    # read reaches params
+    df_reach_params = pd.read_csv(
+        os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "parameters_MC.csv"),
         skipinitialspace=True,
-    )
-    dt_month = (
-        np.asarray(df_dt_month["deltat"]).reshape(n_basin, 12).transpose(1, 0)
+    ).set_index("idre")
+    # calc MC params
+    df_reach_params["c1_mc"], df_reach_params["c2_mc"], df_reach_params["c3_mc"] = MC_params(
+        cel=df_reach_params["CEL"].to_numpy(),
+        disp=df_reach_params["DISP"].to_numpy(),
+        dx=df_reach_params["DX"].to_numpy(),
+        dt=1.0 * 3600.0,  # time step in seconds
+        n_reach=n_reach,
     )
 
-    # read temperature. must be ordered by time ad idlapse
-    id_lapse_rate, t_idlapse, t_slope, t_intercept = init_temper(
-        os.path.join(INPUT_FOLDER, METEO_FOLDER, "temperature.txt"),
-        START_TIME,
-        END_TIME,
-    )
-    # read baseflow. must be ordered by time ad idlapse
-    baseflow = init_baseflow(
-        os.path.join(INPUT_FOLDER, TO_PDM_FOLDER, "baseflow.txt"),
-        START_TIME,
-        END_TIME,
-    )
-    baseflow_glac = init_baseflow(
-        os.path.join(INPUT_FOLDER, TO_PDM_FOLDER, "baseflow_glac.txt"),
-        START_TIME,
-        END_TIME,
-    )
+    # All dataframe must respect the same sequence order of the reaches!!!
+    # init (n_reach, n_hours) real vars
+    Qnodelink = np.full((len(df_nodelinks), n_hours + 1), -999.0)
 
-    # All dataframe must respect the same sequence order of the basins!!!
-    # init (n_basin, n_hours) real vars
-    PET = np.full((n_basin, n_hours + 1), -999.0)
-    ET = np.full((n_basin, n_hours + 1), -999.0)
-    Qrunoff = np.full((n_basin, n_hours + 1), -999.0)
-    Qglac = np.full((n_basin, n_hours + 1), -999.0)  # TODO: this variable can be Qglac(n_basin)
-    Qbase = np.full((n_basin, n_hours + 1), -999.0)
-    Qsubsurf = np.full((n_basin, n_hours + 1), -999.0)
-    soil_moisture = np.full((n_basin, n_hours + 1), -999.0)
+    # init flows at nodelinks
+    df_Qnodelink0 = pd.read_csv(
+        os.path.join(INPUT_FOLDER, TO_TRNSPRT_FOLDER, "discharge.txt"),
+        skipinitialspace=True,
+    )["value"].to_numpy()  # first nodelink is basin outlet
 
-    # these variables are not stored step by step
-    # basin vars
-    Cstar = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Cstar.txt"),
+    # init (n_reach) real vars
+    df_Qsubreach_in = pd.read_csv(
+        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_MC_Qin.txt"),
         skipinitialspace=True,
-    )["value"])
-    Qbase[:, 0] = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qbase.txt"),
+    ).set_index("idre")
+    df_Qsubreach_out = pd.read_csv(
+        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_MC_Qout.txt"),
         skipinitialspace=True,
-    )["value"])
-    Qrunoff_t1 = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t1.txt"),
-        skipinitialspace=True,
-    )["value"])
-    Qglac_t1 = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t1glac.txt"),
-        skipinitialspace=True,
-    )["value"])
-    Qrunoff_t2 = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t2.txt"),
-        skipinitialspace=True,
-    )["value"])
-    Qglac_t2 = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t2glac.txt"),
-        skipinitialspace=True,
-    )["value"])
-    runoff_glac = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_runoff_glac.txt"),
-        skipinitialspace=True,
-    )["value"])
-    runoff = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_runoff.txt"),
-        skipinitialspace=True,
-    )["value"])
-    sgw = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_sgw.txt"),
-        skipinitialspace=True,
-    )["value"])
-    stg = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_stg.txt"),
-        skipinitialspace=True,
-    )["value"])
+    ).set_index("idre")
 
-    # build np arrays for PET from python non-numpy vars
-    month_array = np.asarray(time_array.month)
-    hour_array = np.asarray(time_array.hour)
-    year_array = np.asarray(time_array.year)
-    day_array = np.asarray(time_array.day)
-    ecf = np.asarray(df_general_params["ECF"])[0]
+    # lopp over time steps exceluded init time
+    for t in range(1, len(time_array) + 1, 1):
+        if time_array.hour[t - 1] == 0:
+            print(
+                "Transport",
+                time_array.year[t - 1],
+                time_array.month[t - 1],
+                time_array.day[t - 1]
+            )
+        # transport loop over transport sequence
+        for i, row in df_trans_seq.iterrows():
+            if row["idmo"] == 1:  # basin
+                continue
+            elif row["idmo"] == 2:  # MC
+                # find upstream nodelink
+                reach_id = df_elements.loc[row["idel"]]["idxx"]
+                # Muskingum-Cunge
+                MC(
+                    nstep=df_reaches.loc[reach_id]["nreaches"],
+                    Qsubreach_in=df_Qsubreach_in.loc[reach_id]['value'].to_numpy(),
+                    Qsubreach_out=df_Qsubreach_out.loc[reach_id]['value'].to_numpy(),
+                    c1_mc=df_reach_params.loc[reach_id]["c1_mc"],
+                    c2_mc=df_reach_params.loc[reach_id]["c2_mc"],
+                    c3_mc=df_reach_params.loc[reach_id]["c3_mc"],
+                )
+                
+
+                MC(
+                    reach_id=reach_id,
+                    time_step=time_step,
+                    nstep=n_sub_reaches,
+                    Qsubreach_in=Qsubreach_in,
+                    Qsubreach_out=Qsubreach_out,
+                    n_nodelinks=len(df_nodelinks),
+                    nodelink_node_d=df_nodelinks["node_d"].to_numpy(),
+                    reach_node_u=df_reaches["node_u"].to_numpy(),
+                    nodelink_id=df_nodelinks["idno"].to_numpy(),
+                    Qnodelink=MC_Qout.reshape(-1, 1),  # (nodelink, time)
+                    c1_mc=df_reach_params["C1_MC"].to_numpy(),
+                    c2_mc=df_reach_params["C2_MC"].to_numpy(),
+                    c3_mc=df_reach_params["C3_MC"].to_numpy(),
+                    Q_mc=Qrunoff,
+                )
+
+                # write output step by step
+                pd.DataFrame(
+                    {
+                        "time": time_array.strftime("%Y-%m-%d %H"),
+                        "idre": np.repeat(reaches_id[current_reach], n_hours),
+                        "value": Qrunoff[current_reach, 1 : n_hours + 1],
+                    }
+                ).to_csv(
+                    os.path.join(
+                        OUTPUT_FOLDER,
+                        TO_PDM_FOLDER,
+                        f"discharge_reach_{reaches_id[current_reach]}.txt",
+                    ),
+                    index=False,
+                    float_format="%.4f",
+                )
+
 
     # call PET
     PET = PET_Hargreaves(

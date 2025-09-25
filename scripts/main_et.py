@@ -68,12 +68,12 @@ if __name__ == "__main__":
     )
     # sunrise, sunset params
     df_sun_params = pd.read_csv(
-        os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "sunrise_sunset.txt"),
+        os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "sunrise_sunset.csv"),
         skipinitialspace=True,
     )
     # ET params
     df_dt_month = pd.read_csv(
-        os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "evapparams.txt"),
+        os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "evapparams.csv"),
         skipinitialspace=True,
     )
     dt_month = (
