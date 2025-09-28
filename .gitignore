@@ -471,5 +471,6 @@ $RECYCLE.BIN/
 
 # User
 /**/scripts.code-workspace
+**/delme/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,jupyternotebooks,vim,visualstudiocode,pycharm,emacs,linux,macos,windows

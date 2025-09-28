@@ -289,7 +289,7 @@ if __name__ == "__main__":
         {
             "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
             "idba": np.repeat(basin_id, n_hours),
-            "idno": np.repeat(basin_node, n_hours),
+            "nout": np.repeat(basin_node, n_hours),
             "value": (
                 np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours) +
                 np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours) +

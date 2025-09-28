@@ -28,7 +28,7 @@ def init_reach_vars(filename):
         raise ValueError("Non unique reach id")
         return
 
-    return reaches, reach_id, n_reach, reach_in, reach_out, n_sub_reaches
+    return reaches, reach_id, n_reach, reach_in, reach_out, n_sub_reaches, np.max(n_sub_reaches)
 
 
 def init_basin_vars(filename):
@@ -58,6 +58,52 @@ def init_basin_vars(filename):
     return basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node
 
 
+def init_reservoir_vars(filename):
+    """Initialize reservoir file.
+
+    Args:
+        filename (_type_): _description_
+
+    Returns
+    -------
+        _type_: _description_
+    """
+    reservoirs = pd.read_csv(filename)
+    reservoir_id = np.array(reservoirs["idrs"])
+    n_reservoir = len(reservoir_id)
+
+    # check unique id
+    n2 = len(np.unique(reservoir_id))
+    if n2 < n_reservoir:
+        raise ValueError("Non unique reservoir id")
+        return
+
+    return reservoirs, reservoir_id, n_reservoir
+
+
+def init_junction_vars(filename):
+    """Initialize junction file.
+
+    Args:
+        filename (_type_): _description_
+
+    Returns
+    -------
+        _type_: _description_
+    """
+    junctions = pd.read_csv(filename)
+    junction_id = np.array(junctions["idju"])
+    n_junction = len(junction_id)
+
+    # check unique id
+    n2 = len(np.unique(junction_id))
+    if n2 < n_junction:
+        raise ValueError("Non unique junction id")
+        return
+
+    return junctions, junction_id, n_junction
+
+
 def sort_df_by_idba_seq(df0, basin_id):
     """Resort dataframe to given basin array sequence.
 
@@ -70,6 +116,22 @@ def sort_df_by_idba_seq(df0, basin_id):
     """
     df0["idba"] = pd.Categorical(df0["idba"], categories=basin_id, ordered=True)
     df0 = df0.sort_values("idba")
+
+    return df0
+
+
+def sort_df_by_seq(df0, id_seq, id_name):
+    """Resort dataframe to given basin array sequence.
+
+    Args:
+        filename (_type_): _description_
+
+    Returns
+    -------
+        _type_: _description_
+    """
+    df0[id_name] = pd.Categorical(df0[id_name], categories=id_seq, ordered=True)
+    df0 = df0.sort_values(id_name)
 
     return df0
 
@@ -294,3 +356,42 @@ def init_baseflow(fbflow, START_TIME, END_TIME):
     ))
 
     return baseflow
+
+
+def init_qnodelink(df_nodelinks, Qnodelink, fqnode, START_TIME, END_TIME):
+    """Initialize q at nodelinks for every time step but only at catchments:
+    note that the sequence is not checked!!! all the arrays and dataframe must
+    be in execution sequence."""
+    
+    # datatframe with all q values in time at basin nodes
+    df_discharge = pd.read_csv(fqnode, skipinitialspace=True)
+
+    df_discharge = df_discharge[
+        (df_discharge["time"] > START_TIME) & (df_discharge["time"] <= END_TIME)
+    ]
+
+    if len(df_discharge) == 0:
+        raise ValueError("Data time range is outside start and end time limits.")
+
+    # create a mask on df_nodelinks for basin nodes to find
+    # those that are basin outlets. basin and nodelink sequence must be respected!!!
+    mask_bas = (
+        df_nodelinks["nodelink_node_u"].isin(df_discharge["nout"])
+    )
+    df_nodelinks = df_nodelinks[mask_bas]
+
+    # now add nodelink column to discharge
+    # NOTE: nodelinks are in id order, not sequence!!!
+    df_discharge["idno"] = (
+        df_discharge["nout"].map(
+            df_nodelinks.set_index("nodelink_node_u")["nodelink_id"]
+            )
+        )
+    df_discharge = df_discharge.sort_values(['idno','time'])
+
+    # NOTE: Qnodelink is not in sequence order. It is in nodelink id order!!!
+    Qnodelink[mask_bas, 1:] = np.asarray(df_discharge.pivot(
+        index=["idno"], columns=["time"], values="value"
+        ))
+
+    return Qnodelink

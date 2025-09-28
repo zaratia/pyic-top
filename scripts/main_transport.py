@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from pyic_top.ictop_utils import init_reach_vars
+from pyic_top.ictop_utils import init_reach_vars, init_qnodelink, init_basin_vars, init_reservoir_vars,init_junction_vars
 from pyic_top.module_mc import MC, MC_params
 
 
@@ -59,17 +59,20 @@ if __name__ == "__main__":
     time_array = pd.date_range(start=start_time, end=end_time, freq="h")
 
     # read reaches list, reach id must be the model sequence
-    df_reaches, reaches_id, n_reach, reach_in, reach_out, n_sub_reaches = init_reach_vars(
+    df_reaches, reaches_id, n_reach, reach_in, reach_out, n_sub_reaches, n_step_max = init_reach_vars(
         os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "reaches.txt")
     )
+
     # read nodelinks list
+    # NOTE: nodelinks are not in sequence order!!!
     df_nodelinks = pd.read_csv(
         os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "nodelinks.txt"),
         skipinitialspace=True,
     )
+
     # read transport sequence
     df_trans_seq = pd.read_csv(
-        os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "transport_seq.txt"),
+        os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "topseq.txt"),
         skipinitialspace=True,
     )
     # read element list
@@ -92,27 +95,64 @@ if __name__ == "__main__":
         n_reach=n_reach,
     )
 
+    # read basin list, basin_id must be the model sequence
+    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = init_basin_vars(
+        os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
+    )
+
+    # read reservoir list, reservoir_id must be the model sequence
+    df_reservoirs, reservoir_id, n_reservoir = init_reservoir_vars(
+        os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "reservoirs.txt")
+    )
+
+    # read junction list, junction_id must be the model sequence
+    df_junctions, junction_id, n_junction = init_junction_vars(
+        os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "junctions.txt")
+    )
+
     # All dataframe must respect the same sequence order of the reaches!!!
-    # init (n_reach, n_hours) real vars
+    # init (n_nodelinks, n_hours) real vars
     Qnodelink = np.full((len(df_nodelinks), n_hours + 1), -999.0)
 
-    # init flows at nodelinks
-    df_Qnodelink0 = pd.read_csv(
-        os.path.join(INPUT_FOLDER, TO_TRNSPRT_FOLDER, "discharge.txt"),
+    # ini last flows everywhere at time 0
+    # NOTE: not in sequence order!!!
+    Qnodelink[:, 0] = np.asarray(pd.read_csv(
+        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_last_flow.txt"),
         skipinitialspace=True,
-    )["value"].to_numpy()  # first nodelink is basin outlet
+    )["value"])   
+
+    # init flows at nodelinks, for every time step but only at catchments
+    Qnodelink = init_qnodelink(
+        df_nodelinks,
+        Qnodelink,
+        os.path.join(INPUT_FOLDER, TO_TRNSPRT_FOLDER, "discharge.txt"),
+        START_TIME,
+        END_TIME
+        )
 
     # init (n_reach) real vars
     df_Qsubreach_in = pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_MC_Qin.txt"),
         skipinitialspace=True,
-    ).set_index("idre")
+    )
     df_Qsubreach_out = pd.read_csv(
         os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_MC_Qout.txt"),
         skipinitialspace=True,
-    ).set_index("idre")
+    )
+    # create subreach vars. we use fillna because some reaches may have less subreaches
+    # than the max number of subreaches
+    Qsubreach_in = np.asarray(df_Qsubreach_in.pivot(
+        index="n_sm",
+        columns="idre",
+        values="value"
+    ).fillna(-999.0))
+    Qsubreach_out = np.asarray(df_Qsubreach_out.pivot(
+        index="n_sm",
+        columns="idre",
+        values="value"
+    ).fillna(-999.0))   
 
-    # lopp over time steps exceluded init time
+    # loop over time steps excluded time 0
     for t in range(1, len(time_array) + 1, 1):
         if time_array.hour[t - 1] == 0:
             print(
@@ -121,209 +161,100 @@ if __name__ == "__main__":
                 time_array.month[t - 1],
                 time_array.day[t - 1]
             )
+        # init
+        basin_count = 0
+        reservoir_count = 0
+        reach_count = 0
+        junction_count = 0
         # transport loop over transport sequence
         for i, row in df_trans_seq.iterrows():
-            if row["idmo"] == 1:  # basin
-                continue
+            if row["idmo"] == 5:  # basin, just transfer the flow
+                # find basin id
+                basin_id = df_elements.loc[row["idel"]]["idxx"]
+                #print(f"Basin {basin_id}")
+
+                downstream_nodelink = (
+                    df_nodelinks.set_index("nodelink_node_u").loc[
+                        int(df_basins.loc[basin_count]["nodeout"])
+                        ]
+                )
+                # the order of the nodelinks is not in sequence order!!!
+                # TODO: order the nodelinks according to the sequence!!!
+                downstream_flow = Qnodelink[downstream_nodelink["nodelink_id"] - 1, t]
+                basin_count += 1  # the basin is already computed! 
+            elif row["idmo"] == 4:  # Reservoir
+                # find reservoir id
+                reservoir_id = df_elements.loc[row["idel"]]["idxx"]
+                #print(f"Reservoir {reservoir_id}")
+
+                # find upstream and downstream nodelinks
+                upstream_nodelink = (
+                    df_nodelinks.set_index("nodelink_node_d").loc[
+                        int(df_reservoirs.loc[reservoir_count]["nodein"])
+                        ]
+                )
+                downstream_nodelink_turb = (
+                    df_nodelinks.set_index("nodelink_node_u").loc[
+                        int(df_reservoirs.loc[reservoir_count]["nodeturb"])
+                        ]
+                )
+                downstream_nodelink_spill = (
+                    df_nodelinks.set_index("nodelink_node_u").loc[
+                        int(df_reservoirs.loc[reservoir_count]["nodespill"])
+                        ]
+                )
+                # 0 turbinated flow
+                Qnodelink[
+                    downstream_nodelink_turb["nodelink_id"] - 1, t
+                ] = 0
+                # All spilled flow
+                Qnodelink[
+                    downstream_nodelink_spill["nodelink_id"] - 1, t
+                ] = Qnodelink[
+                    upstream_nodelink["nodelink_id"] - 1, t
+                ]
             elif row["idmo"] == 2:  # MC
-                # find upstream nodelink
+                # find reach
                 reach_id = df_elements.loc[row["idel"]]["idxx"]
+                #print(f"Reach {reach_id}")
+
+                # find upstream nodelink
+                upstream_node = df_reaches.set_index("idre").loc[reach_id]["idin"]
+                upstream_nodelink = df_nodelinks.set_index("nodelink_node_d").loc[upstream_node]
+                # find downstream nodelink
+                downstream_node = df_reaches.set_index("idre").loc[reach_id]["idout"]
+                downstream_nodelink = df_nodelinks.set_index("nodelink_node_u").loc[downstream_node]
                 # Muskingum-Cunge
-                MC(
-                    nstep=df_reaches.loc[reach_id]["nreaches"],
-                    Qsubreach_in=df_Qsubreach_in.loc[reach_id]['value'].to_numpy(),
-                    Qsubreach_out=df_Qsubreach_out.loc[reach_id]['value'].to_numpy(),
+                Qsubreach_in, Qsubreach_out = MC(
+                    reach_count,
+                    Qupstream=Qnodelink[upstream_nodelink["nodelink_id"] - 1, t],
+                    nstep=df_reaches.set_index("idre").loc[reach_id]["nreaches"],
+                    Qsubreach_in=Qsubreach_in,
+                    Qsubreach_out=Qsubreach_out,
                     c1_mc=df_reach_params.loc[reach_id]["c1_mc"],
                     c2_mc=df_reach_params.loc[reach_id]["c2_mc"],
                     c3_mc=df_reach_params.loc[reach_id]["c3_mc"],
                 )
-                
+                Qnodelink[downstream_nodelink["nodelink_id"] - 1, t] = Qsubreach_out[-1, reach_count]
+                # next reach
+                reach_count += 1
+            elif row["idmo"] == 3:  # Junction
+                # find junction id
+                junction_id = df_elements.loc[row["idel"]]["idxx"]
+                #print(f"Junction {junction_id}")
 
-                MC(
-                    reach_id=reach_id,
-                    time_step=time_step,
-                    nstep=n_sub_reaches,
-                    Qsubreach_in=Qsubreach_in,
-                    Qsubreach_out=Qsubreach_out,
-                    n_nodelinks=len(df_nodelinks),
-                    nodelink_node_d=df_nodelinks["node_d"].to_numpy(),
-                    reach_node_u=df_reaches["node_u"].to_numpy(),
-                    nodelink_id=df_nodelinks["idno"].to_numpy(),
-                    Qnodelink=MC_Qout.reshape(-1, 1),  # (nodelink, time)
-                    c1_mc=df_reach_params["C1_MC"].to_numpy(),
-                    c2_mc=df_reach_params["C2_MC"].to_numpy(),
-                    c3_mc=df_reach_params["C3_MC"].to_numpy(),
-                    Q_mc=Qrunoff,
+                # find upstream nodelinks
+                upstream_node1 = df_junctions.set_index("idju").loc[junction_id]["idin1"]
+                upstream_nodelink1 = df_nodelinks.set_index("nodelink_node_d").loc[upstream_node1]
+                upstream_node2 = df_junctions.set_index("idju").loc[junction_id]["idin2"]
+                upstream_nodelink2 = df_nodelinks.set_index("nodelink_node_d").loc[upstream_node2]
+                # find downstream nodelinks
+                downstream_node = df_junctions.set_index("idju").loc[junction_id]["idout"]
+                downstream_nodelink = df_nodelinks.set_index("nodelink_node_u").loc[downstream_node]
+                # sum upstream flows
+                Qnodelink[downstream_nodelink["nodelink_id"] - 1, t] = (
+                    Qnodelink[upstream_nodelink1["nodelink_id"] - 1, t]
+                    + Qnodelink[upstream_nodelink2["nodelink_id"] - 1, t]
                 )
-
-                # write output step by step
-                pd.DataFrame(
-                    {
-                        "time": time_array.strftime("%Y-%m-%d %H"),
-                        "idre": np.repeat(reaches_id[current_reach], n_hours),
-                        "value": Qrunoff[current_reach, 1 : n_hours + 1],
-                    }
-                ).to_csv(
-                    os.path.join(
-                        OUTPUT_FOLDER,
-                        TO_PDM_FOLDER,
-                        f"discharge_reach_{reaches_id[current_reach]}.txt",
-                    ),
-                    index=False,
-                    float_format="%.4f",
-                )
-
-
-    # call PET
-    PET = PET_Hargreaves(
-        avg_lat=AVG_LAT,
-        n_hours=n_hours,
-        hour_array=hour_array,
-        year_array=year_array,
-        month_array=month_array,
-        day_array=day_array,
-        n_basin=n_basin,
-        PET=PET,
-        n_lapse=len(id_lapse_rate),
-        basin_elev=basin_elev,
-        basin_lapse=basin_lapse,
-        t_intercept=t_intercept,
-        t_slope=t_slope,
-        ecf=ecf,
-        dT_month=dt_month,
-        id_lapse_rate=id_lapse_rate,
-        t_idlapse=t_idlapse,
-    )
-
-    # build np arrays from python non-numpy vars
-    # TODO: always use np.asarray when extracting values
-    cmin = np.asarray(df_pdm_params["CMIN"])
-    cmax = np.asarray(df_pdm_params["CMAX"])
-    b = np.asarray(df_pdm_params["B"])
-    stmax = (b * cmin + cmax) / (b + 1)
-    stmin = np.asarray(df_pdm_params["STMIN"])
-    be = np.asarray(df_pdm_params["BE"])
-    bg = np.asarray(df_pdm_params["BG"])
-    q0 = np.asarray(df_pdm_params["Q0"])
-    m = np.asarray(df_pdm_params["M"])
-    kg = np.asarray(df_pdm_params["KG"])
-    ks = np.asarray(df_pdm_params["KS"])
-    k1 = np.asarray(df_pdm_params["K1"])
-    k2 = np.asarray(df_pdm_params["K2"])
-    k_glac = np.asarray(df_pdm_params["KGLAC"])
-
-    (
-        stg,  # PDM storage
-        sgw,  # groundwater
-        Cstar,  # PDM capacity
-        ET,  # evapotranspiration
-        Qsubsurf,  # topmodel subsurface flow
-        runoff_glac,  # surface glac runoff
-        Qglac,  # glac flow at the outlet
-        runoff,  # surface ruoff
-        Qrunoff,  # runoff at the outlet
-        soil_moisture,  # % storage (vs max storage)
-        Qbase,  # base flow
-    ) = pdm(
-        n_hours=n_hours,
-        n_basin=n_basin,
-        month_array=month_array,
-        hour_array=hour_array,
-        year_array=year_array,
-        day_array=day_array,
-        stg=stg,
-        sgw=sgw,
-        Cstar=Cstar,
-        runoff=runoff,
-        runoff_glac=runoff_glac,
-        Qbase=Qbase,
-        PET=PET,
-        ET=ET,
-        baseflow=baseflow,
-        baseflow_glac=baseflow_glac,
-        Qbase_type=QBASE_TYPE,
-        cmin=cmin,
-        cmax=cmax,
-        stmax=stmax,
-        stmin=stmin,
-        b=b,
-        be=be,
-        bg=bg,
-        q0=q0,
-        m=m,
-        kg=kg,
-        ks=ks,
-        k1=k1,
-        k2=k2,
-        k_glac=k_glac,
-        Qglac_t1=Qglac_t1,
-        Qglac_t2=Qglac_t2,
-        Qrunoff_t1=Qrunoff_t1,
-        Qrunoff_t2=Qrunoff_t2,
-        Qrunoff=Qrunoff,
-        Qglac=Qglac,
-        Qsubsurf=Qsubsurf,
-        soil_moisture=soil_moisture,
-        time_step_duration=1,
-    )
-
-    # # write final state vars
-    # n_bn_array = np.arange(1, n_fasce + 1, 1)
-    # n_cl_array = np.arange(1, n_bande + 1, 1)
-    # # baseflow glac
-    # pd.DataFrame({
-    #     'time': time_array[-1].strftime('%Y-%m-%d %H'),
-    #     'idba': basin_id,
-    #     'value': baseflow_glac[:,-1]
-    # }).to_csv(
-    #     os.path.join(OUTPUT_FOLDER, 'state_var_baseflow_glac.txt'),
-    #     index=False
-    #     )
-
-    # soil_moisture
-    pd.DataFrame(
-        {
-            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "id_ba": np.repeat(basin_id, n_hours),
-            "value": np.asarray(soil_moisture[:, 1:]).reshape(n_basin * n_hours),
-        }
-    ).to_csv(
-        os.path.join(OUTPUT_FOLDER, "soilmoisture.txt"),
-        index=False,
-        float_format=FLOAT_FORMAT_SM,
-    )
-
-    # to transport models
-    pd.DataFrame(
-        {
-            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "idba": np.repeat(basin_id, n_hours),
-            "idno": np.repeat(basin_node, n_hours),
-            "value": (
-                np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours) +
-                np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours) +
-                np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours) +
-                np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours)
-            ) * np.repeat(basin_area, n_hours) / 1000 / 3600  # m3/s
-        }
-    ).to_csv(
-        os.path.join(INPUT_FOLDER, TO_TRNSPRT_FOLDER, "discharge.txt"),
-        index=False,
-        float_format=FLOAT_FORMAT_SM,
-    )
-
-    # to transport models
-    pd.DataFrame(
-        {
-            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "idba": np.repeat(basin_id, n_hours),
-            "qglac": np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours),
-            "qroff": np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours),
-            "qbase": np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours),
-            "qsubs": np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours),
-        }
-    ).to_csv(
-        os.path.join(OUTPUT_FOLDER, "basin_runoff.txt"),
-        index=False,
-        float_format=FLOAT_FORMAT_SM,
-    )
+                # next junction
+                junction_count += 1 

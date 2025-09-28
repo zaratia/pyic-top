@@ -22,26 +22,27 @@ def MC_params(cel, disp, dx, dt, n_reach):
 
 #@njit
 def MC(
+    current_reach, Qupstream,
     nstep, Qsubreach_in, Qsubreach_out,
     c1_mc, c2_mc, c3_mc
 ):
-    Qsubreach_in_t1 = Qsubreach_in.copy()
-    Qsubreach_out_t1 = Qsubreach_out.copy()
+    Qsubreach_in_t1 = Qsubreach_in[:, current_reach].copy()
+    Qsubreach_out_t1 = Qsubreach_out[:, current_reach].copy()
 
     for n in range(nstep):
         if n == 0:
-            Qsubreach_out[n] = (
+            Qsubreach_out[n, current_reach] = (
                 Qupstream * c1_mc
                 + Qsubreach_in_t1[n] * c2_mc
                 + Qsubreach_out_t1[n] * c3_mc
             )
         else:
-            Qsubreach_in[n - 1] = Qsubreach_out[n - 1]
+            Qsubreach_in[n - 1, current_reach] = Qsubreach_out[n - 1, current_reach]
             Qsubreach_in_t1[n - 1] = Qsubreach_out_t1[n - 1]
-            Qsubreach_out[n] = (
-                Qsubreach_in[n - 1] * c1_mc
+            Qsubreach_out[n, current_reach] = (
+                Qsubreach_in[n - 1, current_reach] * c1_mc
                 + Qsubreach_in_t1[n - 1] * c2_mc
                 + Qsubreach_out_t1[n] * c3_mc
             )
 
-    Q_mc[ :n_step, time_step] = Qsubreach_out[:n_step]
+    return Qsubreach_in, Qsubreach_out
