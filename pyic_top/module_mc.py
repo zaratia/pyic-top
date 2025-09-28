@@ -20,7 +20,7 @@ def MC_params(cel, disp, dx, dt, n_reach):
     return c1_mc, c2_mc, c3_mc
 
 
-#@njit
+@njit
 def MC(
     current_reach, Qupstream,
     nstep, Qsubreach_in, Qsubreach_out,

@@ -1,3 +1,4 @@
+from numba import njit
 import json
 import os
 
@@ -6,6 +7,62 @@ import pandas as pd
 
 from pyic_top.ictop_utils import init_reach_vars, init_qnodelink, init_basin_vars, init_reservoir_vars,init_junction_vars
 from pyic_top.module_mc import MC, MC_params
+
+@njit
+def transport_loop(
+    basin_count, reservoir_count, reach_count,
+    junction_count, nodelink_count,
+    Qnodelink, n_sub_reaches, mod_seq,
+    c1_mc, c2_mc, c3_mc,
+    Qsubreach_in, Qsubreach_out, t
+):
+    # transport loop over transport sequence
+    for m in range(len(mod_seq)):
+        if mod_seq[m] == 5:
+            # basin, do nothing
+            basin_count = basin_count + 1
+            nodelink_count = nodelink_count + 1
+        elif mod_seq[m] == 4:  # Reservoir
+            # neutral model only, for now
+            # turbined flow is 0
+            Qnodelink[
+                nodelink_count, t
+            ] = 0
+            nodelink_count = nodelink_count + 1
+            # All spilled flow, the upstream nodelink is the second last
+            Qnodelink[
+                nodelink_count, t
+            ] = Qnodelink[
+                nodelink_count - 2, t
+            ]
+            nodelink_count = nodelink_count + 1
+            reservoir_count = reservoir_count + 1  # the reservoir is already computed!
+        elif mod_seq[m] == 2:  # MC
+            # Muskingum-Cunge
+            Qsubreach_in, Qsubreach_out = MC(
+                reach_count,
+                Qupstream=Qnodelink[nodelink_count - 1, t],
+                nstep=n_sub_reaches[reach_count],
+                Qsubreach_in=Qsubreach_in,
+                Qsubreach_out=Qsubreach_out,
+                c1_mc=c1_mc[reach_count],
+                c2_mc=c2_mc[reach_count],
+                c3_mc=c3_mc[reach_count],
+            )
+            Qnodelink[nodelink_count, t] = Qsubreach_out[-1, reach_count]
+            # next reach
+            nodelink_count = nodelink_count + 1
+            reach_count = reach_count + 1
+        elif mod_seq[m] == 3:  # Junction
+            # sum upstream flows
+            Qnodelink[nodelink_count, t] = (
+                Qnodelink[nodelink_count - 1, t]
+                + Qnodelink[nodelink_count - 2, t]
+            )
+            nodelink_count = nodelink_count + 1
+            # next junction
+            junction_count = junction_count + 1
+    return
 
 
 def _read_init(cfg_path: str = "config.json") -> dict:
@@ -94,6 +151,9 @@ if __name__ == "__main__":
         dt=1.0 * 3600.0,  # time step in seconds
         n_reach=n_reach,
     )
+    c1_mc = np.asarray(df_reach_params["c1_mc"])
+    c2_mc = np.asarray(df_reach_params["c2_mc"])
+    c3_mc = np.asarray(df_reach_params["c3_mc"]) 
 
     # read basin list, basin_id must be the model sequence
     df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = init_basin_vars(
@@ -150,7 +210,10 @@ if __name__ == "__main__":
         index="n_sm",
         columns="idre",
         values="value"
-    ).fillna(-999.0))   
+    ).fillna(-999.0))
+
+    # model sequence array
+    mod_seq = np.asarray(df_trans_seq["idmo"])
 
     # loop over time steps excluded time 0
     for t in range(1, len(time_array) + 1, 1):
@@ -166,95 +229,15 @@ if __name__ == "__main__":
         reservoir_count = 0
         reach_count = 0
         junction_count = 0
-        # transport loop over transport sequence
-        for i, row in df_trans_seq.iterrows():
-            if row["idmo"] == 5:  # basin, just transfer the flow
-                # find basin id
-                basin_id = df_elements.loc[row["idel"]]["idxx"]
-                #print(f"Basin {basin_id}")
+        nodelink_count = 0
 
-                downstream_nodelink = (
-                    df_nodelinks.set_index("nodelink_node_u").loc[
-                        int(df_basins.loc[basin_count]["nodeout"])
-                        ]
-                )
-                # the order of the nodelinks is not in sequence order!!!
-                # TODO: order the nodelinks according to the sequence!!!
-                downstream_flow = Qnodelink[downstream_nodelink["nodelink_id"] - 1, t]
-                basin_count += 1  # the basin is already computed! 
-            elif row["idmo"] == 4:  # Reservoir
-                # find reservoir id
-                reservoir_id = df_elements.loc[row["idel"]]["idxx"]
-                #print(f"Reservoir {reservoir_id}")
+        transport_loop(
+            basin_count, reservoir_count, reach_count,
+            junction_count, nodelink_count,
+            Qnodelink, n_sub_reaches, mod_seq,
+            c1_mc, c2_mc, c3_mc,
+            Qsubreach_in, Qsubreach_out, t
+        )
 
-                # find upstream and downstream nodelinks
-                upstream_nodelink = (
-                    df_nodelinks.set_index("nodelink_node_d").loc[
-                        int(df_reservoirs.loc[reservoir_count]["nodein"])
-                        ]
-                )
-                downstream_nodelink_turb = (
-                    df_nodelinks.set_index("nodelink_node_u").loc[
-                        int(df_reservoirs.loc[reservoir_count]["nodeturb"])
-                        ]
-                )
-                downstream_nodelink_spill = (
-                    df_nodelinks.set_index("nodelink_node_u").loc[
-                        int(df_reservoirs.loc[reservoir_count]["nodespill"])
-                        ]
-                )
-                # 0 turbinated flow
-                Qnodelink[
-                    downstream_nodelink_turb["nodelink_id"] - 1, t
-                ] = 0
-                # All spilled flow
-                Qnodelink[
-                    downstream_nodelink_spill["nodelink_id"] - 1, t
-                ] = Qnodelink[
-                    upstream_nodelink["nodelink_id"] - 1, t
-                ]
-            elif row["idmo"] == 2:  # MC
-                # find reach
-                reach_id = df_elements.loc[row["idel"]]["idxx"]
-                #print(f"Reach {reach_id}")
-
-                # find upstream nodelink
-                upstream_node = df_reaches.set_index("idre").loc[reach_id]["idin"]
-                upstream_nodelink = df_nodelinks.set_index("nodelink_node_d").loc[upstream_node]
-                # find downstream nodelink
-                downstream_node = df_reaches.set_index("idre").loc[reach_id]["idout"]
-                downstream_nodelink = df_nodelinks.set_index("nodelink_node_u").loc[downstream_node]
-                # Muskingum-Cunge
-                Qsubreach_in, Qsubreach_out = MC(
-                    reach_count,
-                    Qupstream=Qnodelink[upstream_nodelink["nodelink_id"] - 1, t],
-                    nstep=df_reaches.set_index("idre").loc[reach_id]["nreaches"],
-                    Qsubreach_in=Qsubreach_in,
-                    Qsubreach_out=Qsubreach_out,
-                    c1_mc=df_reach_params.loc[reach_id]["c1_mc"],
-                    c2_mc=df_reach_params.loc[reach_id]["c2_mc"],
-                    c3_mc=df_reach_params.loc[reach_id]["c3_mc"],
-                )
-                Qnodelink[downstream_nodelink["nodelink_id"] - 1, t] = Qsubreach_out[-1, reach_count]
-                # next reach
-                reach_count += 1
-            elif row["idmo"] == 3:  # Junction
-                # find junction id
-                junction_id = df_elements.loc[row["idel"]]["idxx"]
-                #print(f"Junction {junction_id}")
-
-                # find upstream nodelinks
-                upstream_node1 = df_junctions.set_index("idju").loc[junction_id]["idin1"]
-                upstream_nodelink1 = df_nodelinks.set_index("nodelink_node_d").loc[upstream_node1]
-                upstream_node2 = df_junctions.set_index("idju").loc[junction_id]["idin2"]
-                upstream_nodelink2 = df_nodelinks.set_index("nodelink_node_d").loc[upstream_node2]
-                # find downstream nodelinks
-                downstream_node = df_junctions.set_index("idju").loc[junction_id]["idout"]
-                downstream_nodelink = df_nodelinks.set_index("nodelink_node_u").loc[downstream_node]
-                # sum upstream flows
-                Qnodelink[downstream_nodelink["nodelink_id"] - 1, t] = (
-                    Qnodelink[upstream_nodelink1["nodelink_id"] - 1, t]
-                    + Qnodelink[upstream_nodelink2["nodelink_id"] - 1, t]
-                )
-                # next junction
-                junction_count += 1 
+    # just a little check
+    print(Qnodelink[:, :].max())
