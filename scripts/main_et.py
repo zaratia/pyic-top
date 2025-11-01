@@ -1,5 +1,5 @@
-import os
 import json
+import os
 
 import numpy as np
 import pandas as pd
@@ -22,26 +22,26 @@ init_info = _read_init("init.json")
 
 # global variables
 INPUT_FOLDER = os.path.join(
-    config_dir['main_dir'],
-    config_dir['input_dir'],
+    config_dir["main_dir"],
+    config_dir["input_dir"],
 )
 OUTPUT_FOLDER = os.path.join(
-    config_dir['main_dir'],
-    config_dir['output_dir'],
+    config_dir["main_dir"],
+    config_dir["output_dir"],
 )
-INITCOND_FOLDER = config_dir['initcond_dir']
-TOPOLOGICAL_ELEMENT_FOLDER = config_dir['topo_ele_dir']
-PARAMETER_FOLDER = config_dir['param_dir']
-EEB_FOLDER = config_dir['eeb_dir']
-TOPOLOGY_FOLDER = config_dir['topology_dir']
-METEO_FOLDER = config_dir['meteo_dir']
-TO_PDM_FOLDER = config_dir['to_pdm_dir']
-START_TIME = init_info['start_time']
-END_TIME = init_info['end_time']
-AVG_LAT = init_info['average_lat']
-AVG_LON = init_info['average_lon']
-WE_THRESHOLD = init_info['sca_we_threshold']
-QBASE_TYPE = init_info['qbase_type']
+INITCOND_FOLDER = config_dir["initcond_dir"]
+TOPOLOGICAL_ELEMENT_FOLDER = config_dir["topo_ele_dir"]
+PARAMETER_FOLDER = config_dir["param_dir"]
+EEB_FOLDER = config_dir["eeb_dir"]
+TOPOLOGY_FOLDER = config_dir["topology_dir"]
+METEO_FOLDER = config_dir["meteo_dir"]
+TO_PDM_FOLDER = config_dir["to_pdm_dir"]
+START_TIME = init_info["start_time"]
+END_TIME = init_info["end_time"]
+AVG_LAT = init_info["average_lat"]
+AVG_LON = init_info["average_lon"]
+WE_THRESHOLD = init_info["sca_we_threshold"]
+QBASE_TYPE = init_info["qbase_type"]
 FLOAT_FORMAT_SM = "%.4f"
 
 # first hour is initial condition
@@ -76,9 +76,7 @@ if __name__ == "__main__":
         os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "evapparams.csv"),
         skipinitialspace=True,
     )
-    dt_month = (
-        np.asarray(df_dt_month["deltat"]).reshape(n_basin, 12).transpose(1, 0)
-    )
+    dt_month = np.asarray(df_dt_month["deltat"]).reshape(n_basin, 12).transpose(1, 0)
 
     # read temperature. must be ordered by time ad idlapse
     id_lapse_rate, t_idlapse, t_slope, t_intercept = init_temper(

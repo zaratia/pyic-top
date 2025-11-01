@@ -238,7 +238,11 @@ def pdm(
                 else 0.0
             )
             # get the balance. the baseflow start from timestep 1, 0 is IC
-            losses = Qsubsurf[current_basin, time_step] + Q_to_gw + ET[current_basin, time_step]
+            losses = (
+                Qsubsurf[current_basin, time_step]
+                + Q_to_gw
+                + ET[current_basin, time_step]
+            )
             net_inflow = baseflow[current_basin, time_step - 1] - losses
 
             runoff_glac[current_basin] = baseflow_glac[current_basin, time_step - 1]
@@ -254,9 +258,7 @@ def pdm(
 
             if net_inflow > 0.0:
                 # update cstar
-                Cstar[current_basin] = min(
-                    Cstar_t1 + net_inflow, cmax[current_basin]
-                    )
+                Cstar[current_basin] = min(Cstar_t1 + net_inflow, cmax[current_basin])
                 # update storage
                 stg[current_basin] = min(
                     soil_water_content(
@@ -322,7 +324,6 @@ def pdm(
                             losses = losses - Qsubsurf[current_basin, time_step]
                             ET[current_basin, time_step] = losses
 
-
                 if stg[current_basin] >= stmax[current_basin]:
                     stg[current_basin] = stmax[current_basin]
 
@@ -345,7 +346,7 @@ def pdm(
             soil_moisture[current_basin, time_step] = (
                 stg[current_basin] / stmax[current_basin]
             )
-            
+
             # if Qrunoff[current_basin,time_step] < 0.00001:
             #     Qrunoff[current_basin,time_step] = 0.00001
 

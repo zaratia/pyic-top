@@ -28,7 +28,15 @@ def init_reach_vars(filename):
         raise ValueError("Non unique reach id")
         return
 
-    return reaches, reach_id, n_reach, reach_in, reach_out, n_sub_reaches, np.max(n_sub_reaches)
+    return (
+        reaches,
+        reach_id,
+        n_reach,
+        reach_in,
+        reach_out,
+        n_sub_reaches,
+        np.max(n_sub_reaches),
+    )
 
 
 def init_basin_vars(filename):
@@ -231,26 +239,18 @@ def init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin):
 
     df_elevbnds["h_avg"] = (
         np.asarray(df_elevbnds["h2"]) + np.asarray(df_elevbnds["h1"])
-        ) / 2
+    ) / 2
     df_elevbnds["idba"] = pd.Categorical(
         df_elevbnds["idba"],
         categories=df_elevbnds["idba"].unique(),
         ordered=True,
     )
     fasce_area = np.asarray(
-        df_elevbnds.pivot(
-            index=["idba"],
-            columns=["n_bn"],
-            values="area"
-            )
-        )
+        df_elevbnds.pivot(index=["idba"], columns=["n_bn"], values="area")
+    )
     fasce_elev_avg = np.asarray(
-        df_elevbnds.pivot(
-            index=["idba"],
-            columns=["n_bn"],
-            values="h_avg"
-            )
-        )
+        df_elevbnds.pivot(index=["idba"], columns=["n_bn"], values="h_avg")
+    )
 
     df_energybnds["idba"] = pd.Categorical(
         df_energybnds["idba"],
@@ -258,29 +258,24 @@ def init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin):
         ordered=True,
     )
     bande_area = np.asarray(
-        df_energybnds.pivot(
-            index=["idba"],
-            columns=["n_bn", "n_cl"],
-            values="area"
-            )).reshape(n_basin, n_fasce, n_bande)
+        df_energybnds.pivot(index=["idba"], columns=["n_bn", "n_cl"], values="area")
+    ).reshape(n_basin, n_fasce, n_bande)
     bande_area_glac = np.asarray(
         df_energybnds.pivot(
-            index=["idba"],
-            columns=["n_bn", "n_cl"], 
-            values="area_glac"
-            )
-        ).reshape(n_basin, n_fasce, n_bande)
+            index=["idba"], columns=["n_bn", "n_cl"], values="area_glac"
+        )
+    ).reshape(n_basin, n_fasce, n_bande)
 
     df_EI["idba"] = pd.Categorical(
         df_EI["idba"], categories=df_EI["idba"].unique(), ordered=True
     )
-    EI = np.asarray(
-        df_EI.pivot(
-            index=["idba"],
-            columns=["idmo", "n_bn", "n_cl"],
-            values="EI"
-            )
-        ).reshape(n_basin, n_fasce, 12, n_bande).transpose(0, 2, 1, 3)
+    EI = (
+        np.asarray(
+            df_EI.pivot(index=["idba"], columns=["idmo", "n_bn", "n_cl"], values="EI")
+        )
+        .reshape(n_basin, n_fasce, 12, n_bande)
+        .transpose(0, 2, 1, 3)
+    )
 
     return (
         n_fasce,
@@ -313,9 +308,9 @@ def init_meteo(fprec, ftemp, START_TIME, END_TIME):
         categories=df_precipitation["idba"].unique(),
         ordered=True,
     )
-    prec = np.asarray(df_precipitation.pivot(
-        index=["idba"], columns=["time"], values="value"
-    ))
+    prec = np.asarray(
+        df_precipitation.pivot(index=["idba"], columns=["time"], values="value")
+    )
 
     return id_lapse_rate, t_idlapse, t_slope, t_intercept, prec
 
@@ -351,9 +346,9 @@ def init_baseflow(fbflow, START_TIME, END_TIME):
         categories=df_baseflow["idba"].unique(),
         ordered=True,
     )
-    baseflow = np.asarray(df_baseflow.pivot(
-        index=["idba"], columns=["time"], values="value"
-    ))
+    baseflow = np.asarray(
+        df_baseflow.pivot(index=["idba"], columns=["time"], values="value")
+    )
 
     return baseflow
 
@@ -361,8 +356,8 @@ def init_baseflow(fbflow, START_TIME, END_TIME):
 def init_qnodelink(df_nodelinks, Qnodelink, fqnode, START_TIME, END_TIME):
     """Initialize q at nodelinks for every time step but only at catchments:
     note that the sequence is not checked!!! all the arrays and dataframe must
-    be in execution sequence."""
-    
+    be in execution sequence.
+    """
     # datatframe with all q values in time at basin nodes
     df_discharge = pd.read_csv(fqnode, skipinitialspace=True)
 
@@ -375,23 +370,19 @@ def init_qnodelink(df_nodelinks, Qnodelink, fqnode, START_TIME, END_TIME):
 
     # create a mask on df_nodelinks for basin nodes to find
     # those that are basin outlets. basin and nodelink sequence must be respected!!!
-    mask_bas = (
-        df_nodelinks["nodelink_node_u"].isin(df_discharge["nout"])
-    )
+    mask_bas = df_nodelinks["nodelink_node_u"].isin(df_discharge["nout"])
     df_nodelinks = df_nodelinks[mask_bas]
 
     # now add nodelink column to discharge
     # NOTE: nodelinks are in id order, not sequence!!!
-    df_discharge["idno"] = (
-        df_discharge["nout"].map(
-            df_nodelinks.set_index("nodelink_node_u")["nodelink_id"]
-            )
-        )
-    df_discharge = df_discharge.sort_values(['idno','time'])
+    df_discharge["idno"] = df_discharge["nout"].map(
+        df_nodelinks.set_index("nodelink_node_u")["nodelink_id"]
+    )
+    df_discharge = df_discharge.sort_values(["idno", "time"])
 
     # NOTE: Qnodelink is not in sequence order. It is in nodelink id order!!!
-    Qnodelink[mask_bas, 1:] = np.asarray(df_discharge.pivot(
-        index=["idno"], columns=["time"], values="value"
-        ))
+    Qnodelink[mask_bas, 1:] = np.asarray(
+        df_discharge.pivot(index=["idno"], columns=["time"], values="value")
+    )
 
     return Qnodelink

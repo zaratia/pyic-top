@@ -1,5 +1,5 @@
-import os
 import json
+import os
 
 import numpy as np
 import pandas as pd
@@ -22,26 +22,26 @@ init_info = _read_init("init.json")
 
 # global variables
 INPUT_FOLDER = os.path.join(
-    config_dir['main_dir'],
-    config_dir['input_dir'],
+    config_dir["main_dir"],
+    config_dir["input_dir"],
 )
 OUTPUT_FOLDER = os.path.join(
-    config_dir['main_dir'],
-    config_dir['output_dir'],
+    config_dir["main_dir"],
+    config_dir["output_dir"],
 )
-INITCOND_FOLDER = config_dir['initcond_dir']
-TOPOLOGICAL_ELEMENT_FOLDER = config_dir['topo_ele_dir']
-PARAMETER_FOLDER = config_dir['param_dir']
-EEB_FOLDER = config_dir['eeb_dir']
-TOPOLOGY_FOLDER = config_dir['topology_dir']
-METEO_FOLDER = config_dir['meteo_dir']
-TO_PDM_FOLDER = config_dir['to_pdm_dir']
-START_TIME = init_info['start_time']
-END_TIME = init_info['end_time']
-AVG_LAT = init_info['average_lat']
-AVG_LON = init_info['average_lon']
-WE_THRESHOLD = init_info['sca_we_threshold']
-QBASE_TYPE = init_info['qbase_type']
+INITCOND_FOLDER = config_dir["initcond_dir"]
+TOPOLOGICAL_ELEMENT_FOLDER = config_dir["topo_ele_dir"]
+PARAMETER_FOLDER = config_dir["param_dir"]
+EEB_FOLDER = config_dir["eeb_dir"]
+TOPOLOGY_FOLDER = config_dir["topology_dir"]
+METEO_FOLDER = config_dir["meteo_dir"]
+TO_PDM_FOLDER = config_dir["to_pdm_dir"]
+START_TIME = init_info["start_time"]
+END_TIME = init_info["end_time"]
+AVG_LAT = init_info["average_lat"]
+AVG_LON = init_info["average_lon"]
+WE_THRESHOLD = init_info["sca_we_threshold"]
+QBASE_TYPE = init_info["qbase_type"]
 FLOAT_FORMAT_SD = "%.4f"
 
 # first hour is initial condition
@@ -61,8 +61,10 @@ if __name__ == "__main__":
     )
 
     # read basin list, basin_id must be the model sequence
-    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = init_basin_vars(
-        os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
+    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = (
+        init_basin_vars(
+            os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
+        )
     )
     # read snow basin params
     df_snow_params = pd.read_csv(
@@ -105,7 +107,7 @@ if __name__ == "__main__":
     ) = init_elev_ener_vars(df_elevbnds, df_energybnds, df_EI, n_basin)
 
     # read meteo. temperature must be ordered by time ad idlapse
-    id_lapse_rate, t_idlapse, t_slope, t_intercept, prec  = init_meteo(
+    id_lapse_rate, t_idlapse, t_slope, t_intercept, prec = init_meteo(
         os.path.join(INPUT_FOLDER, METEO_FOLDER, "precipitation.txt"),
         os.path.join(INPUT_FOLDER, METEO_FOLDER, "temperature.txt"),
         START_TIME,
@@ -330,7 +332,7 @@ if __name__ == "__main__":
         os.path.join(OUTPUT_FOLDER, "rain_snow.txt"),
         index=False,
     )
-    
+
     # glacier melt to basin
     pd.DataFrame(
         {

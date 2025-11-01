@@ -23,27 +23,27 @@ init_info = _read_init("init.json")
 
 # global variables
 INPUT_FOLDER = os.path.join(
-    config_dir['main_dir'],
-    config_dir['input_dir'],
+    config_dir["main_dir"],
+    config_dir["input_dir"],
 )
 OUTPUT_FOLDER = os.path.join(
-    config_dir['main_dir'],
-    config_dir['output_dir'],
+    config_dir["main_dir"],
+    config_dir["output_dir"],
 )
-INITCOND_FOLDER = config_dir['initcond_dir']
-TOPOLOGICAL_ELEMENT_FOLDER = config_dir['topo_ele_dir']
-PARAMETER_FOLDER = config_dir['param_dir']
-EEB_FOLDER = config_dir['eeb_dir']
-TOPOLOGY_FOLDER = config_dir['topology_dir']
-METEO_FOLDER = config_dir['meteo_dir']
-TO_PDM_FOLDER = config_dir['to_pdm_dir']
-TO_TRNSPRT_FOLDER = config_dir['to_trnsprt_dir']
-START_TIME = init_info['start_time']
-END_TIME = init_info['end_time']
-AVG_LAT = init_info['average_lat']
-AVG_LON = init_info['average_lon']
-WE_THRESHOLD = init_info['sca_we_threshold']
-QBASE_TYPE = init_info['qbase_type']
+INITCOND_FOLDER = config_dir["initcond_dir"]
+TOPOLOGICAL_ELEMENT_FOLDER = config_dir["topo_ele_dir"]
+PARAMETER_FOLDER = config_dir["param_dir"]
+EEB_FOLDER = config_dir["eeb_dir"]
+TOPOLOGY_FOLDER = config_dir["topology_dir"]
+METEO_FOLDER = config_dir["meteo_dir"]
+TO_PDM_FOLDER = config_dir["to_pdm_dir"]
+TO_TRNSPRT_FOLDER = config_dir["to_trnsprt_dir"]
+START_TIME = init_info["start_time"]
+END_TIME = init_info["end_time"]
+AVG_LAT = init_info["average_lat"]
+AVG_LON = init_info["average_lon"]
+WE_THRESHOLD = init_info["sca_we_threshold"]
+QBASE_TYPE = init_info["qbase_type"]
 FLOAT_FORMAT_SM = "%.4f"
 
 # first hour is initial condition
@@ -60,8 +60,10 @@ if __name__ == "__main__":
     time_array = pd.date_range(start=start_time, end=end_time, freq="h")
 
     # read basin list, basin_id must be the model sequence
-    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = init_basin_vars(
-        os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
+    df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = (
+        init_basin_vars(
+            os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
+        )
     )
     # read snow basin params
     df_pdm_params = pd.read_csv(
@@ -83,9 +85,7 @@ if __name__ == "__main__":
         os.path.join(INPUT_FOLDER, PARAMETER_FOLDER, "evapparams.csv"),
         skipinitialspace=True,
     )
-    dt_month = (
-        np.asarray(df_dt_month["deltat"]).reshape(n_basin, 12).transpose(1, 0)
-    )
+    dt_month = np.asarray(df_dt_month["deltat"]).reshape(n_basin, 12).transpose(1, 0)
 
     # read temperature. must be ordered by time ad idlapse
     id_lapse_rate, t_idlapse, t_slope, t_intercept = init_temper(
@@ -110,53 +110,75 @@ if __name__ == "__main__":
     PET = np.full((n_basin, n_hours + 1), -999.0)
     ET = np.full((n_basin, n_hours + 1), -999.0)
     Qrunoff = np.full((n_basin, n_hours + 1), -999.0)
-    Qglac = np.full((n_basin, n_hours + 1), -999.0)  # TODO: this variable can be Qglac(n_basin)
+    Qglac = np.full(
+        (n_basin, n_hours + 1), -999.0
+    )  # TODO: this variable can be Qglac(n_basin)
     Qbase = np.full((n_basin, n_hours + 1), -999.0)
     Qsubsurf = np.full((n_basin, n_hours + 1), -999.0)
     soil_moisture = np.full((n_basin, n_hours + 1), -999.0)
 
     # these variables are not stored step by step
     # basin vars
-    Cstar = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Cstar.txt"),
-        skipinitialspace=True,
-    )["value"])
-    Qbase[:, 0] = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qbase.txt"),
-        skipinitialspace=True,
-    )["value"])
-    Qrunoff_t1 = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t1.txt"),
-        skipinitialspace=True,
-    )["value"])
-    Qglac_t1 = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t1glac.txt"),
-        skipinitialspace=True,
-    )["value"])
-    Qrunoff_t2 = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t2.txt"),
-        skipinitialspace=True,
-    )["value"])
-    Qglac_t2 = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t2glac.txt"),
-        skipinitialspace=True,
-    )["value"])
-    runoff_glac = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_runoff_glac.txt"),
-        skipinitialspace=True,
-    )["value"])
-    runoff = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_runoff.txt"),
-        skipinitialspace=True,
-    )["value"])
-    sgw = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_sgw.txt"),
-        skipinitialspace=True,
-    )["value"])
-    stg = np.asarray(pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_stg.txt"),
-        skipinitialspace=True,
-    )["value"])
+    Cstar = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Cstar.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
+    Qbase[:, 0] = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qbase.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
+    Qrunoff_t1 = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t1.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
+    Qglac_t1 = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t1glac.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
+    Qrunoff_t2 = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t2.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
+    Qglac_t2 = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_Qrunoff_t2glac.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
+    runoff_glac = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_runoff_glac.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
+    runoff = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_runoff.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
+    sgw = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_sgw.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
+    stg = np.asarray(
+        pd.read_csv(
+            os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_stg.txt"),
+            skipinitialspace=True,
+        )["value"]
+    )
 
     # build np arrays for PET from python non-numpy vars
     month_array = np.asarray(time_array.month)
@@ -291,11 +313,14 @@ if __name__ == "__main__":
             "idba": np.repeat(basin_id, n_hours),
             "nout": np.repeat(basin_node, n_hours),
             "value": (
-                np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours) +
-                np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours) +
-                np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours) +
-                np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours)
-            ) * np.repeat(basin_area, n_hours) / 1000 / 3600  # m3/s
+                np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours)
+                + np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours)
+                + np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours)
+                + np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours)
+            )
+            * np.repeat(basin_area, n_hours)
+            / 1000
+            / 3600,  # m3/s
         }
     ).to_csv(
         os.path.join(INPUT_FOLDER, TO_TRNSPRT_FOLDER, "discharge.txt"),
