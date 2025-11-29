@@ -1,7 +1,7 @@
 {
     "main_dir": "/home/mzaics/codes/pyic-top-files",
     "log_dir": "LOG",
-    "input_dir": "INPUT",
+    "input_dir": "INPUT_286",
     "output_dir": "OUTPUT",
     "initcond_dir": "initcond",
     "topo_ele_dir": "topological_elements",

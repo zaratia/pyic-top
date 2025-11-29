@@ -73,11 +73,15 @@ if __name__ == "__main__":
     df_trans_seq = pd.read_csv(
         os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "topseq.txt"),
         skipinitialspace=True,
+    ).rename(
+        columns={'seq_elem': 'idel','seq_models': 'idmo', 'seq_prog': 'idse'}
     )
     # read element list
     df_elements = pd.read_csv(
         os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "elements.txt"),
         skipinitialspace=True,
+    ).rename(
+        columns={'elem_id': 'idel', 'elem_kind': 'kind', 'elem_idelem': 'idxx'}
     ).set_index("idel")
 
     # read reaches params

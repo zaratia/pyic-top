@@ -39,19 +39,31 @@ def transport_loop(
             basin_count = basin_count + 1
             nodelink_count = nodelink_count + 1
         elif mod_seq[m] == 4:  # Reservoir
+            # check upstream flow
+            Qupstream = Qnodelink[nodelink_count - 1, t]
+            if Qupstream == -999.0:
+                raise ValueError('Reservoir upstream flow equal to -999.0')
+            elif Qupstream < 0.0:
+                raise ValueError('Reservoir upstream flow less than 0.0')
             # neutral model only, for now
             # turbined flow is 0
-            Qnodelink[nodelink_count, t] = 0
+            Qnodelink[nodelink_count, t] = 0  # turbine flow
             nodelink_count = nodelink_count + 1
             # All spilled flow, the upstream nodelink is the second last
             Qnodelink[nodelink_count, t] = Qnodelink[nodelink_count - 2, t]
             nodelink_count = nodelink_count + 1
             reservoir_count = reservoir_count + 1  # the reservoir is already computed!
         elif mod_seq[m] == 2:  # MC
+            # check upstream flow
+            Qupstream = Qnodelink[nodelink_count - 1, t]
+            if Qupstream == -999.0:
+                raise ValueError('Reach upstream flow equal to -999.0')
+            elif Qupstream < 0.0:
+                raise ValueError('Reach upstream flow less than 0.0')
             # Muskingum-Cunge
             Qsubreach_in, Qsubreach_out = MC(
                 reach_count,
-                Qupstream=Qnodelink[nodelink_count - 1, t],
+                Qupstream=Qupstream,
                 nstep=n_sub_reaches[reach_count],
                 Qsubreach_in=Qsubreach_in,
                 Qsubreach_out=Qsubreach_out,
@@ -64,9 +76,16 @@ def transport_loop(
             nodelink_count = nodelink_count + 1
             reach_count = reach_count + 1
         elif mod_seq[m] == 3:  # Junction
+            # check upstream flow
+            Qupstream1 = Qnodelink[nodelink_count - 1, t]
+            Qupstream2 = Qnodelink[nodelink_count - 2, t]
+            if (Qupstream1 == -999.0) or (Qupstream2 == -999.0):
+                raise ValueError('Junction upstream flow equal to -999.0')
+            elif (Qupstream1 < 0.0) or (Qupstream2 < 0.0):
+                raise ValueError('Junction upstream flow less than 0.0')
             # sum upstream flows
             Qnodelink[nodelink_count, t] = (
-                Qnodelink[nodelink_count - 1, t] + Qnodelink[nodelink_count - 2, t]
+                Qupstream1 + Qupstream2
             )
             nodelink_count = nodelink_count + 1
             # next junction
@@ -147,7 +166,7 @@ if __name__ == "__main__":
     df_elements = pd.read_csv(
         os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "elements.txt"),
         skipinitialspace=True,
-    ).set_index("idel")
+    ).rename(columns={'idel': 'elem_id'}).set_index("elem_id")
 
     # read reaches params
     df_reach_params = pd.read_csv(
@@ -230,6 +249,7 @@ if __name__ == "__main__":
     )
 
     # model sequence array
+    df_trans_seq = df_trans_seq.rename(columns={'seq_models': 'idmo'})
     mod_seq = np.asarray(df_trans_seq["idmo"])
 
     # loop over time steps excluded time 0

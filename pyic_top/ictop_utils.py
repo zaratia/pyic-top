@@ -49,7 +49,7 @@ def init_basin_vars(filename):
     -------
         _type_: _description_
     """
-    basins = pd.read_csv(filename)
+    basins = pd.read_csv(filename).rename(columns={'idbasin': 'idba'})
     basin_id = np.array(basins["idba"])
     basin_elev = np.array(basins["elev"])
     basin_area = np.array(basins["area"])
@@ -76,7 +76,7 @@ def init_reservoir_vars(filename):
     -------
         _type_: _description_
     """
-    reservoirs = pd.read_csv(filename)
+    reservoirs = pd.read_csv(filename).rename(columns={'idres': 'idrs'})
     reservoir_id = np.array(reservoirs["idrs"])
     n_reservoir = len(reservoir_id)
 
