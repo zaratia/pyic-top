@@ -15,6 +15,45 @@ from pyic_top.ictop_utils import (
 from pyic_top.module_mc import MC, MC_params
 
 
+def write_output():
+    
+    # # just a little check. print the nodelink with the max discharge and the last nodelink
+    # print(Qnodelink[:, :].max())
+    # r, c = np.unravel_index(np.argmax(Qnodelink), Qnodelink.shape)
+    # print(r, c)  # (riga, colonna)
+
+    # public_nodelinks_id = np.asarray([
+    #     df_nodelinks.loc[r]['nodelink_id'],
+    #     df_nodelinks.iloc[-1]['nodelink_id']
+    # ])
+    # public_nodelinks_ind = [r, -1]
+    # n_public_nodelinks = len(public_nodelinks_id)
+    public_nodelinks_id = np.asarray(
+        df_nodelinks[
+            df_nodelinks['nodelink_node_public'] == 1
+        ]['nodelink_id']
+    )
+    n_public_nodelinks = len(public_nodelinks_id)
+    public_nodelinks_ind = df_nodelinks[df_nodelinks['nodelink_node_public'] == 1].index
+
+    # print output flow
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_public_nodelinks),
+            "idno": np.repeat(public_nodelinks_id, n_hours),
+            "value": np.asarray(
+                Qnodelink[public_nodelinks_ind, 1:]
+                ).reshape(n_public_nodelinks * n_hours)
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "out_flow.csv"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+
+    return
+
+
 @njit
 def transport_loop(
     basin_count,
@@ -25,6 +64,8 @@ def transport_loop(
     Qnodelink,
     n_sub_reaches,
     mod_seq,
+    junctin1_ds,
+    junctin2_ds,
     c1_mc,
     c2_mc,
     c3_mc,
@@ -34,6 +75,8 @@ def transport_loop(
 ):
     # transport loop over transport sequence
     for m in range(len(mod_seq)):
+        if (m == 338) and (t == 426):
+            stop=1
         if mod_seq[m] == 5:
             # basin, do nothing
             basin_count = basin_count + 1
@@ -77,8 +120,8 @@ def transport_loop(
             reach_count = reach_count + 1
         elif mod_seq[m] == 3:  # Junction
             # check upstream flow
-            Qupstream1 = Qnodelink[nodelink_count - 1, t]
-            Qupstream2 = Qnodelink[nodelink_count - 2, t]
+            Qupstream1 = Qnodelink[nodelink_count - junctin1_ds[m], t]
+            Qupstream2 = Qnodelink[nodelink_count - junctin2_ds[m], t]
             if (Qupstream1 == -999.0) or (Qupstream2 == -999.0):
                 raise ValueError('Junction upstream flow equal to -999.0')
             elif (Qupstream1 < 0.0) or (Qupstream2 < 0.0):
@@ -162,11 +205,11 @@ if __name__ == "__main__":
         os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "topseq.txt"),
         skipinitialspace=True,
     )
-    # read element list
-    df_elements = pd.read_csv(
-        os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "elements.txt"),
-        skipinitialspace=True,
-    ).rename(columns={'idel': 'elem_id'}).set_index("elem_id")
+    # # read element list NOTE: We do not need the element file!!!
+    # df_elements = pd.read_csv(
+    #     os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "elements.txt"),
+    #     skipinitialspace=True,
+    # ).rename(columns={'idel': 'elem_id'}).set_index("elem_id")
 
     # read reaches params
     df_reach_params = pd.read_csv(
@@ -251,6 +294,8 @@ if __name__ == "__main__":
     # model sequence array
     df_trans_seq = df_trans_seq.rename(columns={'seq_models': 'idmo'})
     mod_seq = np.asarray(df_trans_seq["idmo"])
+    junctin1_ds = np.asarray(df_trans_seq["junctin1_ds"])
+    junctin2_ds = np.asarray(df_trans_seq["junctin2_ds"])
 
     # loop over time steps excluded time 0
     for t in range(1, len(time_array) + 1, 1):
@@ -277,6 +322,8 @@ if __name__ == "__main__":
             Qnodelink,
             n_sub_reaches,
             mod_seq,
+            junctin1_ds,
+            junctin2_ds,
             c1_mc,
             c2_mc,
             c3_mc,
@@ -285,5 +332,4 @@ if __name__ == "__main__":
             t,
         )
 
-    # just a little check
-    print(Qnodelink[:, :].max())
+write_output()

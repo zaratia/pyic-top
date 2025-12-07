@@ -17,6 +17,179 @@ def _read_init(cfg_path: str = "config.json") -> dict:
         return {}
 
 
+def write_snow_state_var():
+
+    # write final state vars
+    n_bn_array = np.arange(1, n_fasce + 1, 1)
+    n_cl_array = np.arange(1, n_bande + 1, 1)
+    # baseflow
+    pd.DataFrame(
+        {
+            "time": time_array[-1].strftime("%Y-%m-%d %H"),
+            "idba": basin_id,
+            "value": baseflow_glac[:, -1],
+        }
+    ).to_csv(os.path.join(OUTPUT_FOLDER, "state_var_SNOW_baseflow.txt"), index=False)
+    # baseflow glac
+    pd.DataFrame(
+        {
+            "time": time_array[-1].strftime("%Y-%m-%d %H"),
+            "idba": basin_id,
+            "value": baseflow_glac[:, -1],
+        }
+    ).to_csv(os.path.join(OUTPUT_FOLDER, "state_var_SNOW_baseflow.txt"), index=False)
+    # snow WE
+    pd.DataFrame(
+        {
+            "time": time_array[-1].strftime("%Y-%m-%d %H"),
+            "idba": np.repeat(basin_id, n_fasce * n_bande),
+            "n_bn": np.tile(np.repeat(n_bn_array, n_bande), n_basin),
+            "n_cl": np.tile(n_cl_array, n_fasce * n_basin),
+            "value": WE.reshape(n_basin * n_fasce * n_bande),
+        }
+    ).to_csv(os.path.join(OUTPUT_FOLDER, "state_var_SNOW_WE.txt"), index=False)
+    # snow density
+    pd.DataFrame(
+        {
+            "time": time_array[-1].strftime("%Y-%m-%d %H"),
+            "idba": np.repeat(basin_id, n_fasce * n_bande),
+            "n_bn": np.tile(np.repeat(n_bn_array, n_bande), n_basin),
+            "n_cl": np.tile(n_cl_array, n_fasce * n_basin),
+            "value": rhosnow.reshape(n_basin * n_fasce * n_bande),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "state_var_SNOW_rhosnow.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SD,
+    )
+    # snow freezed
+    pd.DataFrame(
+        {
+            "time": time_array[-1].strftime("%Y-%m-%d %H"),
+            "idba": np.repeat(basin_id, n_fasce * n_bande),
+            "n_bn": np.tile(np.repeat(n_bn_array, n_bande), n_basin),
+            "n_cl": np.tile(n_cl_array, n_fasce * n_basin),
+            "value": snow_freeze.reshape(n_basin * n_fasce * n_bande),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "state_var_SNOW_freezed.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SD,
+    )
+    # snow glacmelt
+    pd.DataFrame(
+        {
+            "time": time_array[-1].strftime("%Y-%m-%d %H"),
+            "idba": np.repeat(basin_id, n_fasce * n_bande),
+            "n_bn": np.tile(np.repeat(n_bn_array, n_bande), n_basin),
+            "n_cl": np.tile(n_cl_array, n_fasce * n_basin),
+            "value": V_glac_melt.reshape(n_basin * n_fasce * n_bande),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "state_var_SNOW_glacmelt.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SD,
+    )
+    # snow liquid water
+    pd.DataFrame(
+        {
+            "time": time_array[-1].strftime("%Y-%m-%d %H"),
+            "idba": np.repeat(basin_id, n_fasce * n_bande),
+            "n_bn": np.tile(np.repeat(n_bn_array, n_bande), n_basin),
+            "n_cl": np.tile(n_cl_array, n_fasce * n_basin),
+            "value": lqw.reshape(n_basin * n_fasce * n_bande),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "state_var_SNOW_liqW.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SD,
+    )
+    # snow melt
+    pd.DataFrame(
+        {
+            "time": time_array[-1].strftime("%Y-%m-%d %H"),
+            "idba": np.repeat(basin_id, n_fasce * n_bande),
+            "n_bn": np.tile(np.repeat(n_bn_array, n_bande), n_basin),
+            "n_cl": np.tile(n_cl_array, n_fasce * n_basin),
+            "value": V_snow_melt.reshape(n_basin * n_fasce * n_bande),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "state_var_SNOW_melt.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SD,
+    )
+    # sumT
+    pd.DataFrame(
+        {
+            "time": time_array[-1].strftime("%Y-%m-%d %H"),
+            "idba": np.repeat(basin_id, n_fasce),
+            "n_bn": np.repeat(n_bn_array, n_basin),
+            "value": sumT.reshape(n_basin * n_fasce),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "state_var_SNOW_sumT.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SD,
+    )
+
+    return
+
+
+def write_output():
+    # WE basin
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "value": WE_basin[:, 1:].reshape(n_hours * n_basin),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "out_WE.csv"),
+        index=False,
+    )
+    # rain + snow
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "rain": rainfall_basin[:, 1:].reshape(n_hours * n_basin),
+            "snow": snowfall_basin[:, 1:].reshape(n_hours * n_basin),
+            "melt": V_snow_melt_basin[:, 1:].reshape(n_hours * n_basin)
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "out_rain_snow.csv"),
+        index=False,
+    )
+
+    return
+
+
+def write_to_pdm():
+    
+    # liquid inflow to basin
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "value": baseflow[:, 1:].reshape(n_hours * n_basin),
+        }
+    ).to_csv(os.path.join(INPUT_FOLDER, TO_PDM_FOLDER, "baseflow.txt"), index=False)
+
+    # glacier melt to basin
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "value": baseflow_glac[:, 1:].reshape(n_hours * n_basin),
+        }
+    ).to_csv(
+        os.path.join(INPUT_FOLDER, TO_PDM_FOLDER, "baseflow_glac.txt"),
+        index=False,
+    )
+
+    return
+
+
 config_dir = _read_init("config.json")
 init_info = _read_init("init.json")
 
@@ -45,7 +218,6 @@ QBASE_TYPE = init_info["qbase_type"]
 FLOAT_FORMAT_SD = "%.4f"
 
 # first hour is initial condition
-
 if __name__ == "__main__":
     start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M:%S") + pd.Timedelta(
         hours=1
@@ -82,7 +254,8 @@ if __name__ == "__main__":
         skipinitialspace=True,
     )
 
-    # read elev bands, energy bands, EI, and sort by model sequence basin_id
+    # read elev bands, energy bands, EI: must be already sorted
+    # by model sequence basin_id
     df_EI = pd.read_csv(
         os.path.join(INPUT_FOLDER, EEB_FOLDER, "EI.txt"), skipinitialspace=True
     )
@@ -116,11 +289,11 @@ if __name__ == "__main__":
 
     # read baseflow_glac and baseflow state vars
     baseflow_glac_0 = pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_baseflow_glac.txt"),
+        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_baseflow_glac.txt"),
         skipinitialspace=True,
     )
     baseflow_0 = pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_baseflow.txt"),
+        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_SNOW_baseflow.txt"),
         skipinitialspace=True,
     )
     # All dataframe must respect the same sequence order of the basins!!!
@@ -190,6 +363,9 @@ if __name__ == "__main__":
     cmf = np.asarray(df_snow_params["CMF"])
     nmf = np.asarray(df_snow_params["NMF"])
     rmf = np.asarray(df_snow_params["RMF"])
+    weth = np.asarray(df_snow_params["WETH"])
+    lowerh = np.asarray(df_snow_params["LOWERH"])
+    upperh = np.asarray(df_snow_params["UPPERH"])
     sunrise = np.asarray(df_sun_params["sunrise"])
     sunset = np.asarray(df_sun_params["sunset"])
     delaytime = np.asarray(df_general_params["DelayTime"])[0]
@@ -200,7 +376,11 @@ if __name__ == "__main__":
     eta0 = np.asarray(df_general_params["eta0"])[0]
     rhomin = np.asarray(df_general_params["rhomin"])[0]
 
-    WE, rhosnow, WE_basin, snowfall_basin, rainfall_basin, baseflow = snow(
+    (
+        WE, rhosnow, WE_basin, snowfall_basin, rainfall_basin,
+        baseflow, V_snow_melt_basin, snow_freeze,
+        V_glac_melt, lqw, V_snow_melt, sumT
+    ) = snow(
         n_fasce=n_fasce,
         n_bande=n_bande,
         basin_id=basin_id,
@@ -259,6 +439,9 @@ if __name__ == "__main__":
         cmf=cmf,
         nmf=nmf,
         rmf=rmf,
+        weth=weth,
+        lowerh=lowerh,
+        upperh=upperh,
         c5=c5,
         c6=c6,
         eta0=eta0,
@@ -274,73 +457,9 @@ if __name__ == "__main__":
         refreezing=refreezing,
     )
 
-    # write final state vars
-    n_bn_array = np.arange(1, n_fasce + 1, 1)
-    n_cl_array = np.arange(1, n_bande + 1, 1)
-    # baseflow glac
-    pd.DataFrame(
-        {
-            "time": time_array[-1].strftime("%Y-%m-%d %H"),
-            "idba": basin_id,
-            "value": baseflow_glac[:, -1],
-        }
-    ).to_csv(os.path.join(OUTPUT_FOLDER, "state_var_baseflow_glac.txt"), index=False)
-    # snow WE
-    pd.DataFrame(
-        {
-            "time": time_array[-1].strftime("%Y-%m-%d %H"),
-            "idba": np.repeat(basin_id, n_fasce * n_bande),
-            "n_bn": np.tile(np.repeat(n_bn_array, n_bande), n_basin),
-            "n_cl": np.tile(n_cl_array, n_fasce * n_basin),
-            "value": WE.reshape(n_basin * n_fasce * n_bande),
-        }
-    ).to_csv(os.path.join(OUTPUT_FOLDER, "state_var_SNOW_WE.txt"), index=False)
-    # snow density
-    pd.DataFrame(
-        {
-            "time": time_array[-1].strftime("%Y-%m-%d %H"),
-            "idba": np.repeat(basin_id, n_fasce * n_bande),
-            "n_bn": np.tile(np.repeat(n_bn_array, n_bande), n_basin),
-            "n_cl": np.tile(n_cl_array, n_fasce * n_basin),
-            "value": rhosnow.reshape(n_basin * n_fasce * n_bande),
-        }
-    ).to_csv(
-        os.path.join(OUTPUT_FOLDER, "state_var_SNOW_rhosnow.txt"),
-        index=False,
-        float_format=FLOAT_FORMAT_SD,
-    )
-
+    # write snow state vars
+    write_snow_state_var()
+    # write output
+    write_output()
     # to_pdm
-    # liquid inflow to basin
-    pd.DataFrame(
-        {
-            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "idba": np.repeat(basin_id, n_hours),
-            "value": baseflow[:, 1:].reshape(n_hours * n_basin),
-        }
-    ).to_csv(os.path.join(INPUT_FOLDER, TO_PDM_FOLDER, "baseflow.txt"), index=False)
-
-    # rain + snow
-    pd.DataFrame(
-        {
-            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "idba": np.repeat(basin_id, n_hours),
-            "rain": rainfall_basin[:, 1:].reshape(n_hours * n_basin),
-            "snow": snowfall_basin[:, 1:].reshape(n_hours * n_basin),
-        }
-    ).to_csv(
-        os.path.join(OUTPUT_FOLDER, "rain_snow.txt"),
-        index=False,
-    )
-
-    # glacier melt to basin
-    pd.DataFrame(
-        {
-            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "idba": np.repeat(basin_id, n_hours),
-            "value": baseflow_glac[:, 1:].reshape(n_hours * n_basin),
-        }
-    ).to_csv(
-        os.path.join(INPUT_FOLDER, TO_PDM_FOLDER, "baseflow_glac.txt"),
-        index=False,
-    )
+    write_to_pdm()

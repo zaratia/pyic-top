@@ -127,6 +127,26 @@ def sort_df_by_idba_seq(df0, basin_id):
 
     return df0
 
+def sort_df_by_id_seq(df0, id_seq, idname):
+    """Resort dataframe to given basin array sequence.
+
+    Args:
+        filename (_type_): _description_
+
+    Returns
+    -------
+        _type_: _description_
+    """
+    # reorder according to sequence
+    for i, b in enumerate(id_seq):
+        if i == 0:
+            df_tmp = df0[df0[idname] == b]
+        else:
+            df_tmp = pd.concat([df_tmp, df0[df0[idname] == b]])
+    df0 = df_tmp
+
+    return df0
+
 
 def sort_df_by_seq(df0, id_seq, id_name):
     """Resort dataframe to given basin array sequence.

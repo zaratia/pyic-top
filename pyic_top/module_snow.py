@@ -26,10 +26,10 @@ def get_EI(
     EImin,
 ):
     isday_check = False
-    if sunrise[month] <= curr_hour <= sunset[month]:
+    if sunrise[month - 1] <= curr_hour <= sunset[month - 1]:
         isday_check = True
-        day_duration = 24.0 / (sunset[month] - sunrise[month])
-        EI_current = EI[current_basin, month, elev_bnd, energy_bnd] * day_duration
+        day_duration = 24.0 / (sunset[month - 1] - sunrise[month - 1])
+        EI_current = EI[current_basin, month - 1, elev_bnd, energy_bnd] * day_duration
     else:
         EI_current = EImin
     if EI_current < 0.0:
@@ -106,6 +106,7 @@ def Redistribute_WE(
                         if bande_area[bb, i, j] > 0.0:
                             WE[bb, i, j] += amount_per_area
 
+    return WE
 
 # ---------------------------------------------
 # MODULE: snow
@@ -170,6 +171,9 @@ def snow(
     cmf,
     nmf,
     rmf,
+    weth,
+    lowerh,
+    upperh,
     c5,
     c6,
     eta0,
@@ -184,7 +188,10 @@ def snow(
     liquidwater,
     refreezing,
 ):
+    prev_mm = 0
     for time_step in range(1, n_hours + 1, 1):
+        if time_step==44:
+            ciao=1
         glac_melt = np.full((n_basin, n_fasce, n_bande), 0.0)
 
         if hour_array[time_step - 1] == 0:
@@ -192,8 +199,25 @@ def snow(
                 "snow",
                 year_array[time_step - 1],
                 month_array[time_step - 1],
-                day_array[time_step - 1],
+                day_array[time_step - 1]
             )
+
+        # redistribute snow once a month
+        if prev_mm != month_array[time_step - 1]:
+            WE = Redistribute_WE(
+                n_basin,
+                n_fasce,
+                n_bande,
+                fasce_area,
+                fasce_elev_avg,
+                weth,
+                lowerh,
+                upperh,
+                bande_area,
+                basin_area,
+                WE,
+            )
+            prev_mm = month_array[time_step - 1]
 
         for current_basin in range(n_basin):
             current_month = month_array[time_step - 1]
@@ -220,7 +244,7 @@ def snow(
 
                 for ilapse in range(n_lapse):
                     if (basin_lapse[current_basin]) == (id_lapse_rate[ilapse]) and (
-                        t_idlapse[time_step] == id_lapse_rate[ilapse]
+                        t_idlapse[time_step - 1] == id_lapse_rate[ilapse]
                     ):
                         t_elev_bnd[i] = (
                             t_intercept[time_step - 1]
@@ -233,7 +257,7 @@ def snow(
                     * PCF[current_basin]
                     * (1.0 + dz * precgrad[current_basin] / 1000.0)
                 )
-                prec_corr = prec[current_basin, time_step]
+                prec_corr = prec[current_basin, time_step - 1]
 
                 energy_band_area[i] = np.sum(bande_area[current_basin, i, :])
                 p_vol_band[i] = max(
@@ -251,8 +275,8 @@ def snow(
                     check_precip = True
 
                 if check_precip:
-                    prec[current_basin, time_step] = (
-                        prec[current_basin, time_step]
+                    prec[current_basin, time_step - 1] = (
+                        prec[current_basin, time_step - 1]
                         * np.sum(p_vol_band[:])
                         / np.sum(p_vol_area[:])
                     )
@@ -287,7 +311,7 @@ def snow(
                         EImin,
                     )
 
-                    if prec[current_basin, time_step] > 0.0:
+                    if prec[current_basin, time_step - 1] > 0.0:
                         # get the elevation difference from average basin
                         # elevation and elevation band
                         dz = (
@@ -295,7 +319,7 @@ def snow(
                         )
                         # get precipitation for the current elevation band
                         prec_elev_bnd[i] = (
-                            prec[current_basin, time_step]
+                            prec[current_basin, time_step - 1]
                             * PCF[current_basin]
                             * (1.0 + dz * precgrad[current_basin] / 1000.0)
                         )
@@ -640,4 +664,8 @@ def snow(
                         j,
                     )
 
-    return WE, rhosnow, WE_basin, snowfall_basin, rainfall_basin, baseflow
+    return (
+        WE, rhosnow, WE_basin, snowfall_basin,
+        rainfall_basin, baseflow, V_snow_melt_basin, snow_freeze,
+        V_glac_melt, lqw, V_snow_melt, sumT
+    )

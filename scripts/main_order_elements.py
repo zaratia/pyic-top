@@ -10,6 +10,7 @@ from pyic_top.ictop_utils import (
     init_reach_vars,
     init_reservoir_vars,
     sort_df_by_seq,
+    sort_df_by_id_seq
 )
 from pyic_top.module_mc import MC_params
 
@@ -76,6 +77,11 @@ if __name__ == "__main__":
     ).rename(
         columns={'seq_elem': 'idel','seq_models': 'idmo', 'seq_prog': 'idse'}
     )
+    # we create two fileds to store the distance of the junction inputs
+    # from the nodelink (distance = no of steps before reaching the junction)
+    df_trans_seq['junctin1_ds'] = -999
+    df_trans_seq['junctin2_ds'] = -999
+    
     # read element list
     df_elements = pd.read_csv(
         os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "elements.txt"),
@@ -100,13 +106,24 @@ if __name__ == "__main__":
         )
     )
 
-    # read basin list, basin_id must be the model sequence
+    # read basin list, basin_id will be re-ordered
     df_basins, basin_id, n_basin, basin_elev, basin_area, basin_lapse, basin_node = (
         init_basin_vars(
             os.path.join(INPUT_FOLDER, TOPOLOGICAL_ELEMENT_FOLDER, "basins.txt")
         )
     )
     df_basins = df_basins.set_index("idba")
+
+    # make basin sequence
+    df_basin_seq = df_trans_seq[df_trans_seq['idmo'] == 5].merge(
+        df_elements, left_on='idel', right_on='idel'
+    )[['idxx', 'idse']]
+
+    df_basins = sort_df_by_seq(
+        df_basins.reset_index(),
+        np.array(df_basin_seq['idxx']),
+        'idba'
+    )
 
     # read reservoir list, reservoir_id must be the model sequence
     df_reservoirs, reservoir_id, n_reservoir = init_reservoir_vars(
@@ -120,14 +137,42 @@ if __name__ == "__main__":
     )
     df_junctions = df_junctions.set_index("idju")
 
-    # init (n_reach) real vars
-    df_Qsubreach_in = pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_MC_Qin.txt"),
+    # read elev bands, energy bands, EI and sort by model sequence basin_id
+    df_EI = pd.read_csv(
+        os.path.join(INPUT_FOLDER, EEB_FOLDER, "EI.txt"), skipinitialspace=True
+    )
+    dfx = sort_df_by_id_seq(
+        df_EI,
+        np.array(df_basin_seq['idxx']),
+        'idba'
+    )
+    # reorder according to sequence
+    df_EI = sort_df_by_id_seq(
+        df_EI,
+        np.array(df_basin_seq['idxx']),
+        'idba'
+    )
+
+    df_elevbnds = pd.read_csv(
+        os.path.join(INPUT_FOLDER, EEB_FOLDER, "elevbnds.txt"),
         skipinitialspace=True,
     )
-    df_Qsubreach_out = pd.read_csv(
-        os.path.join(INPUT_FOLDER, INITCOND_FOLDER, "state_var_MC_Qout.txt"),
+    # reorder according to sequence
+    df_elevbnds = sort_df_by_id_seq(
+        df_elevbnds,
+        np.array(df_basin_seq['idxx']),
+        'idba'
+    )
+
+    df_energybnds = pd.read_csv(
+        os.path.join(INPUT_FOLDER, EEB_FOLDER, "energybnds.txt"),
         skipinitialspace=True,
+    )
+    # reorder according to sequence
+    df_energybnds = sort_df_by_id_seq(
+        df_energybnds,
+        np.array(df_basin_seq['idxx']),
+        'idba'
     )
 
     # reordered nodelink dataframe
@@ -144,15 +189,16 @@ if __name__ == "__main__":
     nodelink_count = 0
     # transport loop over transport sequence
     for i, row in df_trans_seq.iterrows():
-        if row["idmo"] == 5:  # basin, just transfer the flow
+        if row.idel == 822:
+            ciao=21
+        if row["idmo"] == 5:  # basin, just transfer the flow NOTE: now we do not have junctions after a basin.
             # find basin id
             basin_id = df_elements.loc[row["idel"]]["idxx"]
             # print(f"Basin {basin_id}")
-
             downstream_nodelink = (
                 df_nodelinks.reset_index()
                 .set_index("nodelink_node_u")
-                .loc[int(df_basins.loc[basin_id]["nodeout"])]
+                .loc[int(df_basins.set_index('idba').loc[basin_id]["nodeout"])]
             )
 
             id_nodelinks_seq[nodelink_count] = downstream_nodelink["nodelink_id"]
@@ -161,7 +207,7 @@ if __name__ == "__main__":
             id_basins_seq[basin_count] = basin_id
             basin_count += 1
 
-        elif row["idmo"] == 4:  # Reservoir
+        elif row["idmo"] == 4:  # Reservoir TODO: check for junctions and debug, now we do not have reservoirs
             # find reservoir id
             reservoir_id = df_elements.loc[row["idel"]]["idxx"]
             # print(f"Reservoir {reservoir_id}")
@@ -182,12 +228,6 @@ if __name__ == "__main__":
                 .set_index("nodelink_node_u")
                 .loc[int(df_reservoirs.loc[reservoir_id]["nodespill"])]
             )
-
-            # usptream nodelink is already in sequence!
-            # id_nodelinks_seq[nodelink_count] = (
-            #     upstream_nodelink["nodelink_id"]
-            # )
-            # nodelink_count += 1
 
             id_nodelinks_seq[nodelink_count] = downstream_nodelink_turb["nodelink_id"]
             nodelink_count += 1
@@ -227,9 +267,62 @@ if __name__ == "__main__":
             #     upstream_nodelink["nodelink_id"]
             # )
             # nodelink_count += 1
-
             id_nodelinks_seq[nodelink_count] = downstream_nodelink["nodelink_id"]
             nodelink_count += 1
+
+            # do we have a junction? after the reach? if so,
+            # we assign to the junction the distance of the out npde 
+            # from the two upstream nodelinks
+            if (  # isjunction1
+                (df_junctions["idin1"] == downstream_nodelink["nodelink_node_d"]) 
+            ).any():
+                nodein1 = downstream_nodelink["nodelink_node_d"]
+                idju = df_junctions.reset_index().set_index("idin1").loc[nodein1]["idju"]
+                id_el_ju = (
+                    df_elements[
+                        (df_elements['kind'] == 3) & (df_elements['idxx'] == idju)
+                        ].reset_index()['idel'][0]
+                )
+                id_el_re = (
+                    df_elements[
+                        (df_elements['kind'] == 2) & (df_elements['idxx'] == reach_id)
+                        ].reset_index()['idel'][0]
+                )
+                # search the relative junction-reach position in the sequence
+                # and compute the distance
+                ds1 = (
+                    np.array(df_trans_seq[df_trans_seq['idel'] == id_el_ju]['idse'])[0] -
+                    np.array(df_trans_seq[df_trans_seq['idel'] == id_el_re]['idse'])[0]
+                )
+                df_trans_seq=df_trans_seq.set_index('idel')
+                df_trans_seq.loc[id_el_ju, 'junctin1_ds'] = ds1
+                df_trans_seq=df_trans_seq.reset_index()
+
+            elif (  # isjunction2
+                (df_junctions["idin2"] == downstream_nodelink["nodelink_node_d"]) 
+            ).any():
+
+                nodein2 = downstream_nodelink["nodelink_node_d"]
+                idju = df_junctions.reset_index().set_index("idin2").loc[nodein2]["idju"]
+                id_el_ju = (
+                    df_elements[
+                        (df_elements['kind'] == 3) & (df_elements['idxx'] == idju)
+                        ].reset_index()['idel'][0]
+                )
+                id_el_re = (
+                    df_elements[
+                        (df_elements['kind'] == 2) & (df_elements['idxx'] == reach_id)
+                        ].reset_index()['idel'][0]
+                )
+                # search the relative junction-reach position in the sequence
+                # and compute the distance
+                ds2 = (
+                    np.array(df_trans_seq[df_trans_seq['idel'] == id_el_ju]['idse'])[0] -
+                    np.array(df_trans_seq[df_trans_seq['idel'] == id_el_re]['idse'])[0]
+                )
+                df_trans_seq=df_trans_seq.set_index('idel')
+                df_trans_seq.loc[id_el_ju, 'junctin2_ds'] = ds2
+                df_trans_seq=df_trans_seq.reset_index()
 
             id_reaches_seq[reach_count] = reach_id
             reach_count += 1
@@ -248,12 +341,6 @@ if __name__ == "__main__":
                 .set_index("nodelink_node_d")
                 .loc[upstream_node]
             )
-
-            # upstream nodelink is already in sequence!
-            # id_nodelinks_seq[nodelink_count] = (
-            #     upstream_nodelink["nodelink_id"]
-            # )
-            # nodelink_count += 1
 
             id_reaches_seq[reach_count] = reach_id
             reach_count += 1
@@ -290,18 +377,63 @@ if __name__ == "__main__":
                 .loc[downstream_node]
             )
 
-            # upstream nodelinks are already in sequence!
-            # id_nodelinks_seq[nodelink_count] = (
-            #     upstream_nodelink1["nodelink_id"]
-            # )
-            # nodelink_count += 1
-            # id_nodelinks_seq[nodelink_count] = (
-            #     upstream_nodelink2["nodelink_id"]
-            # )
-            # nodelink_count += 1
-
             id_nodelinks_seq[nodelink_count] = downstream_nodelink["nodelink_id"]
             nodelink_count += 1
+
+            # do we have another junction? after the junction? if so,
+            # we assign to the junction the distance of the out node 
+            # from the two upstream nodelinks
+            if (  # isjunction1
+                (df_junctions["idin1"] == downstream_nodelink["nodelink_node_d"]) 
+            ).any():
+
+                nodein1 = downstream_nodelink["nodelink_node_d"]
+                idju = df_junctions.reset_index().set_index("idin1").loc[nodein1]["idju"]
+                id_el_ju = (
+                    df_elements[
+                        (df_elements['kind'] == 3) & (df_elements['idxx'] == idju)
+                        ].reset_index()['idel'][0]
+                )
+                id_el_prevju = (
+                    df_elements[
+                        (df_elements['kind'] == 3) & (df_elements['idxx'] == junction_id)
+                        ].reset_index()['idel'][0]
+                )
+                # search the relative junction-junction position in the sequence
+                # and compute the distance
+                ds1 = (
+                    np.array(df_trans_seq[df_trans_seq['idel'] == id_el_ju]['idse'])[0] -
+                    np.array(df_trans_seq[df_trans_seq['idel'] == id_el_prevju]['idse'])[0]
+                )
+                df_trans_seq=df_trans_seq.set_index('idel')
+                df_trans_seq.loc[id_el_ju, 'junctin1_ds'] = ds1
+                df_trans_seq=df_trans_seq.reset_index()
+
+            elif (  # isjunction2
+                (df_junctions["idin2"] == downstream_nodelink["nodelink_node_d"]) 
+            ).any():
+
+                nodein2 = downstream_nodelink["nodelink_node_d"]
+                idju = df_junctions.reset_index().set_index("idin2").loc[nodein2]["idju"]
+                id_el_ju = (
+                    df_elements[
+                        (df_elements['kind'] == 3) & (df_elements['idxx'] == idju)
+                        ].reset_index()['idel'][0]
+                )
+                id_el_prevju = (
+                    df_elements[
+                        (df_elements['kind'] == 3) & (df_elements['idxx'] == junction_id)
+                        ].reset_index()['idel'][0]
+                )
+                # search the relative junction-junction position in the sequence
+                # and compute the distance
+                ds2 = (
+                    np.array(df_trans_seq[df_trans_seq['idel'] == id_el_ju]['idse'])[0] -
+                    np.array(df_trans_seq[df_trans_seq['idel'] == id_el_prevju]['idse'])[0]
+                )
+                df_trans_seq=df_trans_seq.set_index('idel')
+                df_trans_seq.loc[id_el_ju, 'junctin2_ds'] = ds2
+                df_trans_seq=df_trans_seq.reset_index()
 
             id_junctions_seq[junction_count] = junction_id
             junction_count += 1
@@ -342,3 +474,25 @@ if __name__ == "__main__":
         index=False,
         float_format=FLOAT_FORMAT_SM,
     )
+    df_trans_seq.to_csv(
+        os.path.join(INPUT_FOLDER, TOPOLOGY_FOLDER, "topseq_ordered.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+    
+    df_EI.to_csv(
+        os.path.join(INPUT_FOLDER, EEB_FOLDER, "EI_ordered.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+    df_elevbnds.to_csv(
+        os.path.join(INPUT_FOLDER, EEB_FOLDER, "elevbnds_ordered.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+    df_energybnds.to_csv(
+        os.path.join(INPUT_FOLDER, EEB_FOLDER, "energybnds_ordered.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+    

@@ -126,7 +126,7 @@ if __name__ == "__main__":
     #     'idba': basin_id,
     #     'value': baseflow_glac[:,-1]
     # }).to_csv(
-    #     os.path.join(OUTPUT_FOLDER, 'state_var_baseflow_glac.txt'),
+    #     os.path.join(OUTPUT_FOLDER, 'state_var_SNOW_baseflow_glac.txt'),
     #     index=False
     #     )
 

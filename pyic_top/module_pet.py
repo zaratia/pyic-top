@@ -17,8 +17,8 @@ def get_Ra(yy, mm, dd, hh, avg_lat):
     # Get the julian day (number of day during the year: from 1 to 365 or 366)
     julian_day = 0
     for i in range(12):
-        if i < mm:
-            julian_day = julian_day + n_day_month[i]
+        if i + 1 < mm:
+            julian_day = julian_day + n_day_month[i + 1]
 
     if (num_days == 366) and (mm > 2):
         julian_day = julian_day + 1
@@ -109,7 +109,7 @@ def PET_Hargreaves(
                         * (t_basin + 17.8)
                         * 0.0023
                         * rad
-                        * ((np.abs(dT_month[current_month, current_basin])) ** 0.5)
+                        * ((np.abs(dT_month[current_month - 1, current_basin])) ** 0.5)
                         / 24.0
                     )
 

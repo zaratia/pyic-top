@@ -17,6 +17,75 @@ def _read_init(cfg_path: str = "config.json") -> dict:
         print(f"Error loading JSON file: {e}")
         return {}
 
+def write_output():
+    # soil_moisture
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "id_ba": np.repeat(basin_id, n_hours),
+            "value": np.asarray(soil_moisture[:, 1:]).reshape(n_basin * n_hours),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "out_soilmoisture.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+    # write PET
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "value": PET[:, 1:].reshape(n_basin * n_hours),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "out_pet.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+    # basin runoff
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "qglac": np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours),
+            "qroff": np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours),
+            "qbase": np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours),
+            "qsubs": np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours),
+        }
+    ).to_csv(
+        os.path.join(OUTPUT_FOLDER, "out_basin_runoff.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+
+    return
+
+
+def write_to_transport():
+       # to transport models
+    pd.DataFrame(
+        {
+            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
+            "idba": np.repeat(basin_id, n_hours),
+            "nout": np.repeat(basin_node, n_hours),
+            "value": (
+                np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours)
+                + np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours)
+                + np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours)
+                + np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours)
+            )
+            * np.repeat(basin_area, n_hours)
+            / 1000
+            / 3600,  # m3/s
+        }
+    ).to_csv(
+        os.path.join(INPUT_FOLDER, TO_TRNSPRT_FOLDER, "discharge.txt"),
+        index=False,
+        float_format=FLOAT_FORMAT_SM,
+    )
+
+    return
+
 
 config_dir = _read_init("config.json")
 init_info = _read_init("init.json")
@@ -280,66 +349,5 @@ if __name__ == "__main__":
         time_step_duration=1,
     )
 
-    # # write final state vars
-    # n_bn_array = np.arange(1, n_fasce + 1, 1)
-    # n_cl_array = np.arange(1, n_bande + 1, 1)
-    # # baseflow glac
-    # pd.DataFrame({
-    #     'time': time_array[-1].strftime('%Y-%m-%d %H'),
-    #     'idba': basin_id,
-    #     'value': baseflow_glac[:,-1]
-    # }).to_csv(
-    #     os.path.join(OUTPUT_FOLDER, 'state_var_baseflow_glac.txt'),
-    #     index=False
-    #     )
-
-    # soil_moisture
-    pd.DataFrame(
-        {
-            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "id_ba": np.repeat(basin_id, n_hours),
-            "value": np.asarray(soil_moisture[:, 1:]).reshape(n_basin * n_hours),
-        }
-    ).to_csv(
-        os.path.join(OUTPUT_FOLDER, "soilmoisture.txt"),
-        index=False,
-        float_format=FLOAT_FORMAT_SM,
-    )
-
-    # to transport models
-    pd.DataFrame(
-        {
-            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "idba": np.repeat(basin_id, n_hours),
-            "nout": np.repeat(basin_node, n_hours),
-            "value": (
-                np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours)
-                + np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours)
-                + np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours)
-                + np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours)
-            )
-            * np.repeat(basin_area, n_hours)
-            / 1000
-            / 3600,  # m3/s
-        }
-    ).to_csv(
-        os.path.join(INPUT_FOLDER, TO_TRNSPRT_FOLDER, "discharge.txt"),
-        index=False,
-        float_format=FLOAT_FORMAT_SM,
-    )
-
-    # to transport models
-    pd.DataFrame(
-        {
-            "time": np.tile(time_array.strftime("%Y-%m-%d %H"), n_basin),
-            "idba": np.repeat(basin_id, n_hours),
-            "qglac": np.asarray(Qglac[:, 1:]).reshape(n_basin * n_hours),
-            "qroff": np.asarray(Qrunoff[:, 1:]).reshape(n_basin * n_hours),
-            "qbase": np.asarray(Qbase[:, 1:]).reshape(n_basin * n_hours),
-            "qsubs": np.asarray(Qsubsurf[:, 1:]).reshape(n_basin * n_hours),
-        }
-    ).to_csv(
-        os.path.join(OUTPUT_FOLDER, "basin_runoff.txt"),
-        index=False,
-        float_format=FLOAT_FORMAT_SM,
-    )
+    write_output()
+    write_to_transport()
